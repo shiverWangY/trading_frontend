@@ -18,6 +18,8 @@ api.interceptors.request.use(
     if (API_KEY) {
       config.headers['X-API-Key'] = API_KEY
     }
+    // ngrok 需要这个 header 来跳过警告页面
+    config.headers['ngrok-skip-browser-warning'] = 'true'
     return config
   },
   error => Promise.reject(error)
