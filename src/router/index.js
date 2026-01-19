@@ -40,7 +40,7 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title || '量化选股'} - 量化选股系统`
+  document.title = `${to.meta.title || 'DeepQuant'} - DeepQuant`
   
   const token = localStorage.getItem('access_token')
   

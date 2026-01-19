@@ -8,7 +8,7 @@
             <div class="logo-glow"></div>
             <el-icon :size="24"><TrendCharts /></el-icon>
           </div>
-          <span class="logo-text">量化选股</span>
+          <span class="logo-text">DeepQuant</span>
         </router-link>
         
         <!-- 模型选择器 -->

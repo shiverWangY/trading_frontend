@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 export const useThemeStore = defineStore('theme', () => {
-  // 从 localStorage 读取主题，默认浅色
-  const savedTheme = localStorage.getItem('theme') || 'light'
+  // 从 localStorage 读取主题，默认深色
+  const savedTheme = localStorage.getItem('theme') || 'dark'
   const isDark = ref(savedTheme === 'dark')
 
   // 更新 DOM class - 需要在 watch 之前定义

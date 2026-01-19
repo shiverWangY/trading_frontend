@@ -57,6 +57,15 @@ api.interceptors.response.use(
   }
 )
 
+// ========== 健康检查 API ==========
+
+/**
+ * 后端健康检查
+ */
+export const checkHealth = () => {
+  return api.get('/health', { timeout: 5000 })
+}
+
 // ========== 认证相关 API ==========
 
 /**
