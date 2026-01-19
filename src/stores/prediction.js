@@ -3,19 +3,30 @@ import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import { getPredictions, startPrediction, getPredictionTaskStatus, getAccuracyStats, getModels } from '@/api'
 
-// 获取最近的工作日（周一到周五）
+// 获取 T-2 个交易日（工作日，排除周末）
 function getLatestTradingDay() {
   let date = dayjs()
-  const dayOfWeek = date.day() // 0=周日, 1=周一, ..., 6=周六
+  let tradingDaysToSubtract = 2
   
+  // 如果今天是周末，先调整到周五
+  const dayOfWeek = date.day() // 0=周日, 1=周一, ..., 6=周六
   if (dayOfWeek === 0) {
-    // 周日 -> 返回上周五
+    // 周日 -> 先回到周五
     date = date.subtract(2, 'day')
   } else if (dayOfWeek === 6) {
-    // 周六 -> 返回周五
+    // 周六 -> 先回到周五
     date = date.subtract(1, 'day')
   }
-  // 周一到周五直接返回当天
+  
+  // 从当前交易日往前推 2 个交易日
+  while (tradingDaysToSubtract > 0) {
+    date = date.subtract(1, 'day')
+    const day = date.day()
+    // 跳过周末
+    if (day !== 0 && day !== 6) {
+      tradingDaysToSubtract--
+    }
+  }
   
   return date.format('YYYY-MM-DD')
 }

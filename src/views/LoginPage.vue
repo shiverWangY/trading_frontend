@@ -212,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Lock, Message, UserFilled, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -311,9 +311,14 @@ const handleSubmit = async () => {
       
       ElMessage.success('登录成功')
       
+      // 等待状态更新完成后跳转
+      await nextTick()
+      
       // 跳转到首页或之前的页面
       const redirect = router.currentRoute.value.query.redirect || '/'
-      router.push(redirect)
+      
+      // 使用 replace 而不是 push，避免返回到登录页
+      router.replace(redirect)
     }
   } catch (err) {
     errorMessage.value = err.response?.data?.detail || err.message || (isRegisterMode.value ? '注册失败' : '登录失败')

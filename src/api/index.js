@@ -39,12 +39,17 @@ api.interceptors.response.use(
   error => {
     console.error('API Error:', error)
     
-    // 401 未授权 - 清除 token 并跳转登录
+    // 401 未授权 - 但排除登录接口（登录失败不应跳转）
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token')
-      // 如果不是在登录页，跳转到登录页
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      const isAuthApi = error.config?.url?.includes('/auth/')
+      
+      // 只有非登录接口的 401 才清除 token 并跳转
+      if (!isAuthApi) {
+        localStorage.removeItem('access_token')
+        // 如果不是在登录页，跳转到登录页
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
       }
     }
     
