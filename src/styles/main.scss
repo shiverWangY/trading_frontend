@@ -663,6 +663,43 @@ img {
   }
 }
 
+// 下拉菜单 - 深色模式
+:root.dark {
+  .el-dropdown__popper,
+  .el-dropdown-menu {
+    background: #1e1e2e !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    
+    .el-dropdown-menu__item {
+      color: rgba(255, 255, 255, 0.8);
+      
+      &:hover,
+      &:focus {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+      
+      &.is-disabled {
+        color: rgba(255, 255, 255, 0.4);
+      }
+      
+      .el-icon {
+        color: rgba(255, 255, 255, 0.6);
+      }
+    }
+    
+    .el-dropdown-menu__item--divided {
+      border-top-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .el-popper__arrow::before {
+      background: #1e1e2e;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
 // 对话框 - 深色模式（使用 :root.dark 因为 dialog teleport 到 body）
 :root.dark .el-overlay {
   .el-dialog {

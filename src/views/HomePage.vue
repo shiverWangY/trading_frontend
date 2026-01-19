@@ -26,8 +26,9 @@
             />
           </div>
           
-          <!-- 数据同步按钮 -->
+          <!-- 数据同步按钮 (仅管理员可见) -->
           <el-dropdown 
+            v-if="isAdmin"
             trigger="click" 
             :disabled="dataSyncStore.syncTask.isRunning"
             @command="handleSync"
@@ -57,8 +58,9 @@
             </template>
           </el-dropdown>
           
-          <!-- 预测按钮 -->
+          <!-- 预测按钮 (仅管理员可见) -->
           <el-button 
+            v-if="isAdmin"
             type="primary" 
             size="large"
             :loading="store.predictionTask.status === 'pending'"
@@ -366,6 +368,7 @@ import { useRouter } from 'vue-router'
 import { Cpu, Search, ArrowRight, TrendCharts, Top, Bottom, List, Refresh, Files, Calendar, Timer, InfoFilled } from '@element-plus/icons-vue'
 import { usePredictionStore } from '@/stores/prediction'
 import { useDataSyncStore } from '@/stores/dataSync'
+import { useAuthStore } from '@/stores/auth'
 import StatCard from '@/components/StatCard.vue'
 import ScoreSlider from '@/components/ScoreSlider.vue'
 import PredictionBadge from '@/components/PredictionBadge.vue'
@@ -380,6 +383,10 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const store = usePredictionStore()
 const dataSyncStore = useDataSyncStore()
+const authStore = useAuthStore()
+
+// 是否是管理员
+const isAdmin = computed(() => authStore.userRole === 'admin')
 
 const currentDate = ref(store.currentDate)
 const filterScore = ref(store.filters.minScore)

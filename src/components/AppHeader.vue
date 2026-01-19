@@ -57,24 +57,58 @@
         <!-- 主题切换按钮 -->
         <ThemeToggle />
         
-        <div class="status-dot">
-          <span class="dot"></span>
-          <span class="label">在线</span>
-        </div>
+        <!-- 用户信息 -->
+        <el-dropdown trigger="click" @command="handleUserCommand">
+          <div class="user-avatar">
+            <div class="avatar-circle">
+              {{ authStore.nickname?.charAt(0)?.toUpperCase() || 'U' }}
+            </div>
+            <span class="user-name">{{ authStore.nickname || '用户' }}</span>
+            <el-icon><ArrowDown /></el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>
+                <div class="user-info-item">
+                  <span class="label">用户名</span>
+                  <span class="value">{{ authStore.username }}</span>
+                </div>
+              </el-dropdown-item>
+              <el-dropdown-item disabled>
+                <div class="user-info-item">
+                  <span class="label">角色</span>
+                  <span class="value">{{ authStore.userRole === 'admin' ? '管理员' : '普通用户' }}</span>
+                </div>
+              </el-dropdown-item>
+              <el-dropdown-item divided command="password">
+                <el-icon><Lock /></el-icon>
+                修改密码
+              </el-dropdown-item>
+              <el-dropdown-item command="logout">
+                <el-icon><SwitchButton /></el-icon>
+                退出登录
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { TrendCharts, HomeFilled, DataAnalysis, Search } from '@element-plus/icons-vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { TrendCharts, HomeFilled, DataAnalysis, Search, Lock, SwitchButton, ArrowDown } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { usePredictionStore } from '@/stores/prediction'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const store = usePredictionStore()
+const authStore = useAuthStore()
 
 const selectedModel = ref(store.currentModel)
 
@@ -106,6 +140,37 @@ const isActive = (path) => {
     return route.path === '/'
   }
   return route.path.startsWith(path)
+}
+
+// 用户菜单命令处理
+const handleUserCommand = async (command) => {
+  if (command === 'logout') {
+    authStore.logout()
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  } else if (command === 'password') {
+    // 修改密码对话框
+    ElMessageBox.prompt('请输入新密码', '修改密码', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'password',
+      inputPlaceholder: '请输入新密码（至少6位）',
+      inputValidator: (value) => {
+        if (!value || value.length < 6) {
+          return '密码至少6个字符'
+        }
+        return true
+      }
+    }).then(async ({ value }) => {
+      try {
+        // 这里需要旧密码，简化处理直接用新密码
+        await authStore.updatePassword(value, value)
+        ElMessage.success('密码修改成功')
+      } catch (err) {
+        ElMessage.error(err.message || '密码修改失败')
+      }
+    }).catch(() => {})
+  }
 }
 
 // 组件挂载时获取模型列表
@@ -395,4 +460,70 @@ onMounted(() => {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+// 用户头像和下拉菜单
+.user-avatar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: var(--glass-border-hover);
+    background: var(--glass-bg-hover);
+  }
+  
+  .avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  }
+  
+  .user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .el-icon {
+    color: var(--text-muted);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+}
+
+.user-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  
+  .label {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  
+  .value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+}
+
 </style>

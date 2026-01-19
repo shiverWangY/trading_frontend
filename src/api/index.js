@@ -12,12 +12,20 @@ const api = axios.create({
   }
 })
 
-// 请求拦截器 - 添加 API Key 鉴权
+// 请求拦截器 - 添加鉴权
 api.interceptors.request.use(
   config => {
-    if (API_KEY) {
+    // API Key 鉴权（非 auth 接口）
+    if (API_KEY && !config.url?.startsWith('/auth')) {
       config.headers['X-API-Key'] = API_KEY
     }
+    
+    // JWT Token 鉴权（已登录用户）
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+    
     // ngrok 需要这个 header 来跳过警告页面
     config.headers['ngrok-skip-browser-warning'] = 'true'
     return config
@@ -30,9 +38,56 @@ api.interceptors.response.use(
   response => response.data,
   error => {
     console.error('API Error:', error)
+    
+    // 401 未授权 - 清除 token 并跳转登录
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token')
+      // 如果不是在登录页，跳转到登录页
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    
     return Promise.reject(error)
   }
 )
+
+// ========== 认证相关 API ==========
+
+/**
+ * 用户注册
+ * @param {object} userData - 用户信息 {username, password, email, nickname}
+ */
+export const register = (userData) => {
+  return api.post('/auth/register', userData)
+}
+
+/**
+ * 用户登录
+ * @param {object} credentials - 登录凭证 {username, password}
+ */
+export const login = (credentials) => {
+  return api.post('/auth/login', credentials)
+}
+
+/**
+ * 修改密码
+ * @param {string} oldPassword - 旧密码
+ * @param {string} newPassword - 新密码
+ */
+export const changePassword = (oldPassword, newPassword) => {
+  return api.post('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword
+  })
+}
+
+/**
+ * 获取当前用户信息
+ */
+export const getCurrentUser = () => {
+  return api.get('/auth/me')
+}
 
 // ========== 预测相关 API ==========
 

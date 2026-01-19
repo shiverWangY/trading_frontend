@@ -1,7 +1,8 @@
 <template>
   <div class="app-container">
-    <AppHeader />
-    <main class="main-content">
+    <!-- 登录页面不显示 Header -->
+    <AppHeader v-if="!isLoginPage" />
+    <main class="main-content" :class="{ 'no-header': isLoginPage }">
       <router-view v-slot="{ Component }">
         <transition name="page" mode="out-in">
           <component :is="Component" />
@@ -9,8 +10,8 @@
       </router-view>
     </main>
     
-    <!-- 装饰性浮动光点 -->
-    <div class="floating-orbs">
+    <!-- 装饰性浮动光点（登录页面有自己的装饰） -->
+    <div v-if="!isLoginPage" class="floating-orbs">
       <div class="orb orb-1"></div>
       <div class="orb orb-2"></div>
       <div class="orb orb-3"></div>
@@ -19,16 +20,18 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import { useThemeStore } from '@/stores/theme'
 
 // 初始化主题
 const themeStore = useThemeStore()
 
-onMounted(() => {
-  // 主题会在 store 初始化时自动应用
-})
+const route = useRoute()
+
+// 判断是否是登录页面
+const isLoginPage = computed(() => route.path === '/login')
 </script>
 
 <style lang="scss">
@@ -42,6 +45,10 @@ onMounted(() => {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  
+  &.no-header {
+    padding-top: 0;
+  }
 }
 
 // 页面过渡动画
