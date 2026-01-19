@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => ({
   // GitHub Pages 部署时需要设置 base 路径
   // 如果部署到 https://username.github.io/repo-name/，设置为 '/repo-name/'
   // 如果部署到 https://username.github.io/，设置为 '/'
-  base: mode === 'production' ? '/trading_frontend/' : '/',
+  base: '/',
   
   plugins: [vue()],
   
