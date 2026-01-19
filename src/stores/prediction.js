@@ -92,7 +92,9 @@ export const usePredictionStore = defineStore('prediction', () => {
   async function fetchModels() {
     try {
       const result = await getModels()
-      models.value = result.models || []
+      // 过滤掉 best_model
+      const allModels = result.models || []
+      models.value = allModels.filter(m => m.model_name !== 'best_model')
     } catch (error) {
       console.error('获取模型列表失败:', error)
       models.value = []

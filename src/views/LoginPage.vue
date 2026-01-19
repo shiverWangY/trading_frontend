@@ -298,10 +298,19 @@ const handleSubmit = async () => {
         nickname: form.nickname || form.username
       })
       
-      ElMessage.success('注册成功，请登录')
-      isRegisterMode.value = false
-      form.password = ''
-      form.confirmPassword = ''
+      // 注册成功后自动登录
+      await authStore.loginUser({
+        username: form.username,
+        password: form.password
+      })
+      
+      ElMessage.success('注册成功')
+      
+      // 等待状态更新完成后跳转
+      await nextTick()
+      
+      const redirect = router.currentRoute.value.query.redirect || '/'
+      router.replace(redirect)
     } else {
       // 登录
       await authStore.loginUser({
