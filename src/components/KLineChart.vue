@@ -229,9 +229,9 @@ const updateChart = () => {
           color0: isUp ? neonColors.upColor : neonColors.downColor,
           borderColor: isUp ? neonColors.upBorder : neonColors.downBorder,
           borderColor0: isUp ? neonColors.upBorder : neonColors.downBorder,
-          borderWidth: 1.5,
+          borderWidth: 1,
           opacity: 0.95,
-          shadowBlur: 8,
+          shadowBlur: 6,
           shadowColor: isUp ? neonColors.upGlow : neonColors.downGlow
         }
       }
@@ -456,6 +456,7 @@ const updateChart = () => {
         data: klineData,
         xAxisIndex: 0,
         yAxisIndex: 0,
+        barWidth: '60%',
         itemStyle: {
           color: colors.upColor,
           color0: colors.downColor,
