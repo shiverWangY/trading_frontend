@@ -30,8 +30,8 @@
             <h1 class="logo-text">DeepQuant</h1>
           </div>
 
-          <h2 class="intro-title">AI 量化选股系统</h2>
-          <p class="intro-subtitle">基于深度学习的智能股票预测平台</p>
+          <h2 class="intro-title">AI 量化序列生成系统</h2>
+          <p class="intro-subtitle">基于深度学习的智能量化预测平台</p>
 
           <!-- 功能特点 -->
           <div class="features">
@@ -43,7 +43,7 @@
               </div>
               <div class="feature-text">
                 <h4>深度学习模型</h4>
-                <p>Transformer + LSTM 混合架构</p>
+                <p>基于 <a href="https://github.com/shiyu-coder/Kronos" target="_blank" class="kronos-link">Kronos</a> 架构的序列生成量化模型</p>
               </div>
             </div>
 
@@ -87,6 +87,9 @@
               <path d="M0,60 Q30,50 60,55 T120,40 T180,50 T240,30 T300,45" fill="none" stroke="rgba(99, 102, 241, 0.6)" stroke-width="2"/>
             </svg>
           </div>
+          
+          <!-- 免责声明 -->
+          <p class="disclaimer-text">* 仅供学习交流，不构成投资建议</p>
         </div>
       </div>
 
@@ -110,7 +113,7 @@
           
           <div class="form-header">
             <h2>{{ isRegisterMode ? '创建账户' : '欢迎回来' }}</h2>
-            <p>{{ isRegisterMode ? '注册以开始使用量化选股系统' : '登录以继续使用量化选股系统' }}</p>
+            <p>{{ isRegisterMode ? '注册以开始使用量化系统' : '登录以继续使用量化系统' }}</p>
           </div>
 
           <form @submit.prevent="handleSubmit" class="auth-form">
@@ -480,6 +483,13 @@ const handleSubmit = async () => {
   line-height: 1.2;
 }
 
+.disclaimer-text {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 .intro-subtitle {
   font-size: 18px;
   color: var(--text-secondary);
@@ -537,6 +547,37 @@ const handleSubmit = async () => {
     p {
       font-size: 14px;
       color: var(--text-secondary);
+    }
+    
+    .kronos-link {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 600;
+      position: relative;
+      transition: all 0.2s ease;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 1px;
+        background: var(--primary-color);
+        transform: scaleX(0);
+        transform-origin: right;
+        transition: transform 0.2s ease;
+      }
+      
+      &:hover {
+        color: var(--accent-color);
+        
+        &::after {
+          transform: scaleX(1);
+          transform-origin: left;
+          background: var(--accent-color);
+        }
+      }
     }
   }
 }

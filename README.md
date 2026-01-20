@@ -1,4 +1,4 @@
-# DeepQuant - AI 量化选股系统
+# DeepQuant - AI 量化序列生成系统
 
 <p align="center">
   <img src="https://img.shields.io/badge/Vue.js-3.x-4FC08D?style=flat-square&logo=vue.js" alt="Vue.js">
@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <strong>🚀 基于深度学习的智能股票预测平台</strong>
+  <strong>🚀 基于深度学习的智能量化预测平台</strong>
 </p>
 
 <p align="center">
@@ -21,8 +21,8 @@
 
 ## ✨ 功能特点
 
-- 🧠 **深度学习模型** - Transformer + LSTM 混合架构
-- 📊 **实时预测分析** - 每日更新 5000+ 股票预测
+- 🧠 **深度学习模型** - 基于 [Kronos](https://github.com/shiyu-coder/Kronos) 架构的序列生成量化模型
+- 📊 **实时预测分析** - 每日更新 5000+ 序列预测
 - 📈 **K线图表** - ECharts 专业 K 线展示
 - 🎯 **准确率统计** - 透明的历史回测验证
 - 🌓 **深色/浅色主题** - 支持主题切换
