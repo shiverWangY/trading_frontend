@@ -307,8 +307,6 @@ const handleSubmit = async () => {
         password: form.password
       })
       
-      ElMessage.success('注册成功')
-      
       // 等待状态更新完成后跳转
       await nextTick()
       
@@ -320,8 +318,6 @@ const handleSubmit = async () => {
         username: form.username,
         password: form.password
       })
-      
-      ElMessage.success('登录成功')
       
       // 等待状态更新完成后跳转
       await nextTick()

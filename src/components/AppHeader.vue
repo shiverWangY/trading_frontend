@@ -158,7 +158,6 @@ const isActive = (path) => {
 const handleUserCommand = async (command) => {
   if (command === 'logout') {
     authStore.logout()
-    ElMessage.success('已退出登录')
     router.push('/login')
   } else if (command === 'password') {
     // 修改密码对话框
