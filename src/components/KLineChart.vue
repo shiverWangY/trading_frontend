@@ -70,13 +70,6 @@
         <el-icon><Mouse /></el-icon>
         拖动查看更多 · 滚轮缩放
       </div>
-      <div v-if="showPrediction && predictionData.length" class="prediction-hint">
-        <div class="prediction-legend">
-          <div class="legend-up"></div>
-          <div class="legend-down"></div>
-        </div>
-        <span>霓虹色 K 线为 AI 预测</span>
-      </div>
     </div>
   </div>
 </template>
@@ -484,7 +477,7 @@ const updateChart = () => {
   
   // 如果有预测数据，添加分割线和背景区域
   if (showPrediction.value && props.predictionData.length && historyLength > 0) {
-    // 添加预测区域背景
+    // 添加预测区域背景（紫色系）
     option.series.push({
       name: '预测区域',
       type: 'line',
@@ -494,8 +487,8 @@ const updateChart = () => {
         silent: true,
         itemStyle: {
           color: isDark.value 
-            ? 'rgba(255, 107, 129, 0.04)' 
-            : 'rgba(255, 107, 129, 0.03)'
+            ? 'rgba(139, 92, 246, 0.06)' 
+            : 'rgba(139, 92, 246, 0.04)'
         },
         data: [[
           { xAxis: historyLength },
@@ -505,8 +498,9 @@ const updateChart = () => {
       markLine: {
         silent: true,
         symbol: 'none',
+        animation: false,
         lineStyle: {
-          color: 'rgba(255, 107, 129, 0.6)',
+          color: 'rgba(139, 92, 246, 0.6)',
           type: 'dashed',
           width: 1.5
         },
@@ -514,14 +508,13 @@ const updateChart = () => {
           show: true,
           formatter: 'Predict',
           position: 'end',
-          color: '#ff6b81',
+          color: '#a78bfa',
           fontSize: 10,
           fontWeight: 600,
           fontFamily: 'JetBrains Mono, monospace',
-          backgroundColor: isDark.value ? 'rgba(15, 15, 25, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-          padding: [3, 8],
-          borderRadius: 3,
-          distance: -30
+          backgroundColor: 'transparent',
+          padding: [0, 4],
+          distance: 8
         },
         data: [
           { xAxis: historyLength - 0.5 }
@@ -729,41 +722,4 @@ defineExpose({
   }
 }
 
-.prediction-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-left: auto;
-  
-  .prediction-legend {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    
-    .legend-up {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      background: rgba(255, 107, 129, 0.9);
-      border: 1px solid rgba(255, 107, 129, 1);
-      box-shadow: 0 0 6px rgba(255, 107, 129, 0.5);
-    }
-    
-    .legend-down {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      background: rgba(46, 213, 115, 0.9);
-      border: 1px solid rgba(46, 213, 115, 1);
-      box-shadow: 0 0 6px rgba(46, 213, 115, 0.5);
-    }
-  }
-  
-  span {
-    font-weight: 500;
-    color: #ff6b81;
-  }
-}
 </style>
