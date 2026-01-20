@@ -1,17 +1,26 @@
 <template>
-  <div class="app-container">
-    <!-- 后端离线提示 -->
-    <transition name="slide-down">
-      <div v-if="!isBackendOnline" class="offline-banner">
-        <div class="offline-content">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
+  <div class="app-container" :class="{ 'app-ready': isAppReady }">
+    <!-- 后端离线提示气泡 -->
+    <transition name="toast-slide" mode="out-in">
+      <div v-if="showOfflineToast" key="toast" class="offline-toast glass-card">
+        <div class="toast-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          <span>后端服务未连接，部分功能不可用</span>
-          <button @click="retryConnection" class="retry-btn">
-            重试
+        </div>
+        <div class="toast-content">
+          <span class="toast-title">连接中断</span>
+          <span class="toast-message">后端服务未连接</span>
+        </div>
+        <div class="toast-actions">
+          <button @click="retryConnection" class="toast-retry">重试</button>
+          <button @click="dismissToast" class="toast-close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -19,7 +28,7 @@
     
     <!-- 登录页面不显示 Header -->
     <AppHeader v-if="!isLoginPage" />
-    <main class="main-content" :class="{ 'no-header': isLoginPage, 'has-banner': !isBackendOnline }">
+    <main class="main-content" :class="{ 'no-header': isLoginPage }">
       <router-view v-slot="{ Component }">
         <transition name="page" mode="out-in">
           <component :is="Component" />
@@ -37,42 +46,83 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import { useThemeStore } from '@/stores/theme'
+import { useAuthStore } from '@/stores/auth'
 import { checkHealth } from '@/api/index.js'
 
 // 初始化主题
 const themeStore = useThemeStore()
+const authStore = useAuthStore()
 
 const route = useRoute()
 
 // 判断是否是登录页面
 const isLoginPage = computed(() => route.path === '/login')
 
+// 应用就绪状态（防止刷新时闪现内部页面）
+const isAppReady = ref(false)
+
 // 后端在线状态
 const isBackendOnline = ref(true)
+const showOfflineToast = ref(false)
+const toastDismissed = ref(false)
 let healthCheckInterval = null
+let autoHideTimer = null
 
 // 检查后端健康状态
 const checkBackendHealth = async () => {
   try {
     await checkHealth()
     isBackendOnline.value = true
+    showOfflineToast.value = false
+    toastDismissed.value = false
   } catch (error) {
     isBackendOnline.value = false
+    // 只有未被手动关闭时才显示
+    if (!toastDismissed.value) {
+      showOfflineToast.value = true
+      startAutoHide()
+    }
     console.warn('后端服务不可用:', error.message)
   }
 }
 
+// 自动隐藏
+const startAutoHide = () => {
+  if (autoHideTimer) clearTimeout(autoHideTimer)
+  autoHideTimer = setTimeout(() => {
+    showOfflineToast.value = false
+  }, 8000) // 8秒后自动消失
+}
+
+// 手动关闭
+const dismissToast = () => {
+  showOfflineToast.value = false
+  toastDismissed.value = true
+  if (autoHideTimer) clearTimeout(autoHideTimer)
+}
+
 // 重试连接
 const retryConnection = () => {
+  if (autoHideTimer) clearTimeout(autoHideTimer)
   checkBackendHealth()
 }
 
-onMounted(() => {
-  // 初始检查
+onMounted(async () => {
+  // 等待认证状态恢复后再显示页面
+  if (localStorage.getItem('access_token') && !authStore.isAuthenticated) {
+    await authStore.fetchCurrentUser()
+  }
+  
+  // 短暂延迟确保过渡平滑
+  setTimeout(() => {
+    isAppReady.value = true
+  }, 50)
+  
+  // 初始检查后端健康状态
   checkBackendHealth()
   
   // 每 30 秒检查一次
@@ -80,9 +130,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval)
-  }
+  if (healthCheckInterval) clearInterval(healthCheckInterval)
+  if (autoHideTimer) clearTimeout(autoHideTimer)
 })
 </script>
 
@@ -91,62 +140,149 @@ onUnmounted(() => {
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-}
-
-// 离线横幅
-.offline-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2000;
-  background: linear-gradient(135deg, #dc2626, #ef4444);
-  color: white;
-  padding: 10px 20px;
-  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.3);
-}
-
-.offline-content {
-  max-width: 1440px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s ease;
   
-  svg {
-    flex-shrink: 0;
+  &.app-ready {
+    opacity: 1;
   }
 }
 
-.retry-btn {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  color: white;
+// 离线气泡提示
+.offline-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(239, 68, 68, 0.1) inset;
+  max-width: 320px;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.15);
+  flex-shrink: 0;
+  
+  svg {
+    width: 18px;
+    height: 18px;
+    color: #ef4444;
+  }
+}
+
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
   font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toast-message {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toast-retry {
+  padding: 6px 12px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
   
   &:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.4);
   }
 }
 
-// 横幅滑入动画
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
+.toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  &:hover {
+    background: var(--glass-bg-hover);
+    color: var(--text-secondary);
+  }
 }
 
-.slide-down-enter-from,
-.slide-down-leave-to {
-  transform: translateY(-100%);
-  opacity: 0;
+// 气泡动画
+.toast-slide-enter-active {
+  animation: toastIn 0.3s ease-out forwards;
+}
+
+.toast-slide-leave-active {
+  animation: toastOut 0.2s ease-in forwards;
+}
+
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
 }
 
 .main-content {
@@ -156,10 +292,6 @@ onUnmounted(() => {
   
   &.no-header {
     padding-top: 0;
-  }
-  
-  &.has-banner {
-    padding-top: 44px;
   }
 }
 
