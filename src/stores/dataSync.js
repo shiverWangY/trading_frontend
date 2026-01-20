@@ -23,8 +23,9 @@ export const useDataSyncStore = defineStore('dataSync', () => {
   /**
    * 启动数据同步任务
    * @param {string} dataType - 同步类型: all/daily/5min
+   * @param {string[]} dates - 日期数组
    */
-  async function startSync(dataType = 'all') {
+  async function startSync(dataType = 'all', dates = []) {
     if (syncTask.value.isRunning) {
       return
     }
@@ -44,7 +45,7 @@ export const useDataSyncStore = defineStore('dataSync', () => {
         errorMessage: null
       }
 
-      const result = await startDataSync(dataType)
+      const result = await startDataSync(dataType, dates)
 
       if (result.success && result.data?.task_id) {
         syncTask.value.taskId = result.data.task_id

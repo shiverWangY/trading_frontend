@@ -20,6 +20,25 @@
             5分钟
           </button>
         </div>
+        
+        <!-- 预测开关 (仅5分钟K线可用) -->
+        <div v-if="chartType === '5min'" class="predict-toggle">
+          <el-switch
+            v-model="showPrediction"
+            :loading="predictionLoading"
+            active-text="预测"
+            @change="handlePredictToggle"
+          />
+          <el-tooltip v-if="predictionInfo" effect="dark" placement="top">
+            <template #content>
+              <div style="text-align: center;">
+                <div>模型: {{ predictionInfo.model_name }}</div>
+                <div>预测日期: {{ predictionInfo.target_date }}</div>
+              </div>
+            </template>
+            <el-icon class="info-icon"><InfoFilled /></el-icon>
+          </el-tooltip>
+        </div>
       </div>
       
       <div class="toolbar-right">
@@ -43,7 +62,7 @@
     <div 
       ref="chartRef" 
       class="chart-wrapper"
-      v-loading="loading"
+      v-loading="loading || predictionLoading"
     ></div>
     
     <div class="chart-footer">
@@ -51,13 +70,20 @@
         <el-icon><Mouse /></el-icon>
         拖动查看更多 · 滚轮缩放
       </div>
+      <div v-if="showPrediction && predictionData.length" class="prediction-hint">
+        <div class="prediction-legend">
+          <div class="legend-up"></div>
+          <div class="legend-down"></div>
+        </div>
+        <span>霓虹色 K 线为 AI 预测</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
-import { Calendar, Timer, Mouse } from '@element-plus/icons-vue'
+import { Calendar, Timer, Mouse, InfoFilled } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import { useThemeStore } from '@/stores/theme'
 import * as echarts from 'echarts'
@@ -67,13 +93,25 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  predictionData: {
+    type: Array,
+    default: () => []
+  },
+  predictionInfo: {
+    type: Object,
+    default: null
+  },
   loading: {
+    type: Boolean,
+    default: false
+  },
+  predictionLoading: {
     type: Boolean,
     default: false
   }
 })
 
-const emit = defineEmits(['typeChange', 'rangeChange'])
+const emit = defineEmits(['typeChange', 'rangeChange', 'predictToggle'])
 
 const themeStore = useThemeStore()
 const { isDark } = storeToRefs(themeStore)
@@ -81,6 +119,7 @@ const { isDark } = storeToRefs(themeStore)
 const chartRef = ref(null)
 const chartType = ref('daily')
 const timeRange = ref(60)
+const showPrediction = ref(false)
 let chartInstance = null
 
 // 根据主题获取颜色配置
@@ -160,10 +199,79 @@ const updateChart = () => {
   
   const colors = getThemeColors()
   
-  const dates = props.data.map(d => d.datetime)
-  const klineData = props.data.map(d => [d.open, d.close, d.low, d.high])
-  const volumeData = props.data.map((d, i) => {
-    const isUp = isKlineUp(i, d)
+  // 合并历史数据和预测数据
+  const allData = [...props.data]
+  const historyLength = props.data.length
+  
+  // 如果有预测数据且开启了显示
+  if (showPrediction.value && props.predictionData.length) {
+    allData.push(...props.predictionData)
+  }
+  
+  const dates = allData.map(d => d.datetime)
+  
+  // 判断预测K线涨跌（使用开盘价和收盘价比较）
+  const isPredictionUp = (data) => data.close >= data.open
+  
+  // 科技感霓虹红绿配色
+  const neonColors = {
+    upColor: 'rgba(255, 107, 129, 0.9)',      // 霓虹粉红
+    upBorder: 'rgba(255, 107, 129, 1)',
+    upGlow: 'rgba(255, 107, 129, 0.5)',
+    downColor: 'rgba(46, 213, 115, 0.9)',     // 霓虹青绿
+    downBorder: 'rgba(46, 213, 115, 1)',
+    downGlow: 'rgba(46, 213, 115, 0.5)'
+  }
+  
+  const klineData = allData.map((d, i) => {
+    const isPrediction = i >= historyLength
+    const isUp = isPrediction ? isPredictionUp(d) : isKlineUp(i, d)
+    
+    if (isPrediction) {
+      // 预测K线：使用科技感霓虹红绿配色
+      return {
+        value: [d.open, d.close, d.low, d.high],
+        itemStyle: {
+          color: isUp ? neonColors.upColor : neonColors.downColor,
+          color0: isUp ? neonColors.upColor : neonColors.downColor,
+          borderColor: isUp ? neonColors.upBorder : neonColors.downBorder,
+          borderColor0: isUp ? neonColors.upBorder : neonColors.downBorder,
+          borderWidth: 1.5,
+          opacity: 0.95,
+          shadowBlur: 8,
+          shadowColor: isUp ? neonColors.upGlow : neonColors.downGlow
+        }
+      }
+    }
+    
+    return {
+      value: [d.open, d.close, d.low, d.high],
+      itemStyle: null
+    }
+  })
+  
+  const volumeData = allData.map((d, i) => {
+    const isPrediction = i >= historyLength
+    const isUp = isPrediction ? isPredictionUp(d) : isKlineUp(i, d)
+    
+    if (isPrediction) {
+      // 预测成交量：科技感霓虹红绿渐变
+      return {
+        value: d.volume,
+        itemStyle: {
+          color: isUp
+            ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(255, 107, 129, 0.7)' },
+                { offset: 1, color: 'rgba(255, 107, 129, 0.15)' }
+              ])
+            : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(46, 213, 115, 0.7)' },
+                { offset: 1, color: 'rgba(46, 213, 115, 0.15)' }
+              ])
+        }
+      }
+    }
+    
     return {
       value: d.volume,
       itemStyle: {
@@ -198,30 +306,43 @@ const updateChart = () => {
       extraCssText: 'backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);',
       formatter: function (params) {
         const index = params[0].dataIndex
-        const data = props.data[index]
+        const isPrediction = index >= historyLength
+        const data = allData[index]
         if (!data) return ''
         
-        // 使用正确的涨跌幅计算
-        const changePercent = calculateChangePercent(index, data)
+        // 预测数据使用开盘价计算涨跌幅
+        let changePercent
+        let preCloseDisplay = '-'
+        
+        if (isPrediction) {
+          // 预测数据：使用开盘价和收盘价计算
+          changePercent = ((data.close - data.open) / data.open * 100)
+        } else {
+          // 历史数据：使用正确的涨跌幅计算
+          changePercent = calculateChangePercent(index, data)
+          if (data.pre_close !== undefined && data.pre_close !== null) {
+            preCloseDisplay = `¥${data.pre_close.toFixed(2)}`
+          } else if (index > 0 && allData[index - 1]) {
+            preCloseDisplay = `¥${allData[index - 1].close.toFixed(2)}`
+          }
+        }
+        
         const isUp = changePercent >= 0
         const changeColor = isUp ? colors.upColor : colors.downColor
         
-        // 获取昨日收盘价用于显示
-        let preCloseDisplay = '-'
-        if (data.pre_close !== undefined && data.pre_close !== null) {
-          preCloseDisplay = `¥${data.pre_close.toFixed(2)}`
-        } else if (index > 0 && props.data[index - 1]) {
-          preCloseDisplay = `¥${props.data[index - 1].close.toFixed(2)}`
-        }
+        // 预测标签
+        const predictionBadge = isPrediction 
+          ? `<span style="display: inline-block; padding: 2px 8px; background: rgba(255, 107, 129, 0.15); border-radius: 4px; font-size: 10px; font-weight: 600; color: #ff6b81; margin-left: 8px; border: 1px solid rgba(255, 107, 129, 0.3); text-shadow: 0 0 8px rgba(255, 107, 129, 0.5);">PREDICT</span>` 
+          : ''
         
         return `
           <div style="min-width: 200px;">
-            <div style="font-weight: 600; margin-bottom: 12px; opacity: 0.6; font-size: 12px;">${data.datetime}</div>
+            <div style="font-weight: 600; margin-bottom: 12px; opacity: 0.6; font-size: 12px; display: flex; align-items: center;">${data.datetime}${predictionBadge}</div>
             <div style="display: grid; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
+              ${!isPrediction ? `<div style="display: flex; justify-content: space-between;">
                 <span style="opacity: 0.6;">昨收</span>
                 <span style="font-weight: 500; font-family: 'JetBrains Mono', monospace; opacity: 0.7;">${preCloseDisplay}</span>
-              </div>
+              </div>` : ''}
               <div style="display: flex; justify-content: space-between;">
                 <span style="opacity: 0.6;">开盘</span>
                 <span style="font-weight: 600; font-family: 'JetBrains Mono', monospace;">¥${data.open.toFixed(2)}</span>
@@ -361,7 +482,56 @@ const updateChart = () => {
     ]
   }
   
-  chartInstance.setOption(option)
+  // 如果有预测数据，添加分割线和背景区域
+  if (showPrediction.value && props.predictionData.length && historyLength > 0) {
+    // 添加预测区域背景
+    option.series.push({
+      name: '预测区域',
+      type: 'line',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      markArea: {
+        silent: true,
+        itemStyle: {
+          color: isDark.value 
+            ? 'rgba(255, 107, 129, 0.04)' 
+            : 'rgba(255, 107, 129, 0.03)'
+        },
+        data: [[
+          { xAxis: historyLength },
+          { xAxis: allData.length - 1 }
+        ]]
+      },
+      markLine: {
+        silent: true,
+        symbol: 'none',
+        lineStyle: {
+          color: 'rgba(255, 107, 129, 0.6)',
+          type: 'dashed',
+          width: 1.5
+        },
+        label: {
+          show: true,
+          formatter: 'Predict',
+          position: 'end',
+          color: '#ff6b81',
+          fontSize: 10,
+          fontWeight: 600,
+          fontFamily: 'JetBrains Mono, monospace',
+          backgroundColor: isDark.value ? 'rgba(15, 15, 25, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+          padding: [3, 8],
+          borderRadius: 3,
+          distance: -30
+        },
+        data: [
+          { xAxis: historyLength - 0.5 }
+        ]
+      },
+      data: []
+    })
+  }
+  
+  chartInstance.setOption(option, true)
 }
 
 const formatVolume = (vol) => {
@@ -379,6 +549,9 @@ const handleResize = () => {
 
 const handleTypeChange = (type) => {
   chartType.value = type
+  if (type === 'daily') {
+    showPrediction.value = false
+  }
   emit('typeChange', type)
 }
 
@@ -386,10 +559,24 @@ const handleRangeChange = (range) => {
   emit('rangeChange', range)
 }
 
+const handlePredictToggle = (val) => {
+  emit('predictToggle', val)
+}
+
 // 监听数据变化
 watch(() => props.data, () => {
   nextTick(() => updateChart())
 }, { deep: true })
+
+// 监听预测数据变化
+watch(() => props.predictionData, () => {
+  nextTick(() => updateChart())
+}, { deep: true })
+
+// 监听预测开关变化
+watch(showPrediction, () => {
+  nextTick(() => updateChart())
+})
 
 // 监听主题变化
 watch(isDark, () => {
@@ -508,5 +695,75 @@ defineExpose({
   gap: 8px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.predict-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  margin-left: 16px;
+  border-left: 1px solid var(--glass-border);
+  
+  .info-icon {
+    color: var(--text-muted);
+    cursor: help;
+    transition: color 0.2s;
+    
+    &:hover {
+      color: var(--primary-color);
+    }
+  }
+  
+  :deep(.el-switch) {
+    --el-switch-on-color: #8b5cf6;
+  }
+  
+  :deep(.el-switch__label) {
+    color: var(--text-muted);
+    font-size: 12px;
+    
+    &.is-active {
+      color: #8b5cf6;
+    }
+  }
+}
+
+.prediction-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+  
+  .prediction-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    .legend-up {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: rgba(255, 107, 129, 0.9);
+      border: 1px solid rgba(255, 107, 129, 1);
+      box-shadow: 0 0 6px rgba(255, 107, 129, 0.5);
+    }
+    
+    .legend-down {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: rgba(46, 213, 115, 0.9);
+      border: 1px solid rgba(46, 213, 115, 1);
+      box-shadow: 0 0 6px rgba(46, 213, 115, 0.5);
+    }
+  }
+  
+  span {
+    font-weight: 500;
+    color: #ff6b81;
+  }
 }
 </style>

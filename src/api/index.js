@@ -207,15 +207,55 @@ export const get5MinKLine = (code, limit = 480) => {
   return api.get(`/kline/${code}/5min`, { params: { limit } })
 }
 
+// ========== K线预测相关 API ==========
+
+/**
+ * 获取K线预测结果
+ * @param {string} code - 股票代码
+ * @param {string} targetDate - 预测目标日期 YYYY-MM-DD（可选）
+ * @param {string} modelName - 模型名称（可选）
+ * @param {number} historyLen - 返回的历史K线数量
+ */
+export const getKLinePrediction = (code, targetDate = null, modelName = null, historyLen = 100) => {
+  const params = { history_len: historyLen }
+  if (targetDate) params.target_date = targetDate
+  if (modelName) params.model_name = modelName
+  return api.get(`/kline/${code}/predict`, { params })
+}
+
+/**
+ * 获取可用预测日期
+ * @param {string} code - 股票代码（可选，不传返回汇总）
+ * @param {string} modelName - 模型名称（可选）
+ * @param {number} limit - 返回数量
+ */
+export const getKLinePredictDates = (code = null, modelName = null, limit = 30) => {
+  const params = { limit }
+  if (code) params.code = code
+  if (modelName) params.model_name = modelName
+  return api.get('/kline/predict/dates', { params })
+}
+
+/**
+ * 获取可用的K线预测模型列表
+ */
+export const getKLinePredictModels = () => {
+  return api.get('/kline/predict/models')
+}
+
 // ========== 数据同步相关 API ==========
 
 /**
  * 启动数据同步任务
  * @param {string} dataType - 同步类型: all/daily/5min
+ * @param {string[]} dates - 日期数组
  * @returns {Promise<{success: boolean, message: string, data: {task_id: number}}>}
  */
-export const startDataSync = (dataType = 'all') => {
-  return api.post(`/data/sync?data_type=${dataType}`)
+export const startDataSync = (dataType = 'all', dates = []) => {
+  return api.post('/data/sync', {
+    data_type: dataType,
+    dates: dates
+  })
 }
 
 /**

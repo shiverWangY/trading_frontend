@@ -66,9 +66,13 @@
       <div class="kline-section glass-card">
         <KLineChart
           :data="klineData"
+          :prediction-data="predictionKlineData"
+          :prediction-info="predictionInfo"
           :loading="klineLoading"
+          :prediction-loading="predictionLoading"
           @type-change="handleTypeChange"
           @range-change="handleRangeChange"
+          @predict-toggle="handlePredictToggle"
         />
       </div>
 
@@ -143,7 +147,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft, Top, Bottom, Clock } from '@element-plus/icons-vue'
-import { getStockInfo, getDailyKLine, get5MinKLine, getPredictionDetail } from '@/api'
+import { getStockInfo, getDailyKLine, get5MinKLine, getPredictionDetail, getKLinePrediction } from '@/api'
 import { usePredictionStore } from '@/stores/prediction'
 import KLineChart from '@/components/KLineChart.vue'
 import PredictionBadge from '@/components/PredictionBadge.vue'
@@ -162,6 +166,11 @@ const klineType = ref('daily')
 const timeRange = ref(60)
 const predictionHistory = ref([])
 const historyLoading = ref(false)
+
+// K线预测相关
+const predictionKlineData = ref([])
+const predictionInfo = ref(null)
+const predictionLoading = ref(false)
 
 // 最新一条K线数据
 const latestKline = computed(() => {
@@ -264,12 +273,61 @@ const fetchPredictionHistory = async () => {
 
 const handleTypeChange = (type) => {
   klineType.value = type
+  // 切换到日K时清空预测数据
+  if (type === 'daily') {
+    predictionKlineData.value = []
+    predictionInfo.value = null
+  }
   fetchKlineData()
 }
 
 const handleRangeChange = (range) => {
   timeRange.value = range
   fetchKlineData()
+}
+
+// 处理预测开关
+const handlePredictToggle = async (enabled) => {
+  if (enabled) {
+    await fetchKLinePrediction()
+  } else {
+    predictionKlineData.value = []
+    predictionInfo.value = null
+  }
+}
+
+// 获取K线预测数据
+const fetchKLinePrediction = async () => {
+  predictionLoading.value = true
+  try {
+    // K线预测使用独立的模型（如 kronos-mini），不传 model_name 使用后端默认模型
+    const result = await getKLinePrediction(stockCode.value, null, null)
+    
+    if (result && result.predictions) {
+      // 转换预测数据格式
+      predictionKlineData.value = result.predictions.map(p => ({
+        datetime: p.datetime,
+        open: p.open,
+        close: p.close,
+        high: p.high,
+        low: p.low,
+        volume: p.volume || 0
+      }))
+      
+      predictionInfo.value = {
+        model_name: result.model_name,
+        target_date: result.target_date,
+        predict_date: result.predict_date,
+        task_id: result.task_id
+      }
+    }
+  } catch (error) {
+    console.error('获取K线预测失败:', error)
+    predictionKlineData.value = []
+    predictionInfo.value = null
+  } finally {
+    predictionLoading.value = false
+  }
 }
 
 watch(stockCode, () => {

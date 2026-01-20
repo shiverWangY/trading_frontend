@@ -27,36 +27,16 @@
           </div>
           
           <!-- 数据同步按钮 (仅管理员可见) -->
-          <el-dropdown 
+          <el-button 
             v-if="isAdmin"
-            trigger="click" 
+            size="large"
+            :loading="dataSyncStore.syncTask.isRunning"
             :disabled="dataSyncStore.syncTask.isRunning"
-            @command="handleSync"
+            @click="showSyncDialog = true"
           >
-            <el-button 
-              size="large"
-              :loading="dataSyncStore.syncTask.isRunning"
-            >
-              <el-icon><Refresh /></el-icon>
-              {{ dataSyncStore.syncTask.isRunning ? '同步中...' : '同步数据' }}
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="all">
-                  <el-icon><Files /></el-icon>
-                  同步全部数据
-                </el-dropdown-item>
-                <el-dropdown-item command="daily">
-                  <el-icon><Calendar /></el-icon>
-                  只同步日K
-                </el-dropdown-item>
-                <el-dropdown-item command="5min">
-                  <el-icon><Timer /></el-icon>
-                  只同步5分钟K
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+            <el-icon><Refresh /></el-icon>
+            {{ dataSyncStore.syncTask.isRunning ? '同步中...' : '同步数据' }}
+          </el-button>
           
           <!-- 预测按钮 (仅管理员可见) -->
           <el-button 
@@ -359,6 +339,55 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 数据同步对话框 -->
+    <el-dialog
+      v-model="showSyncDialog"
+      title="数据同步设置"
+      width="480px"
+      class="sync-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="sync-form">
+        <div class="form-item">
+          <label>同步类型</label>
+          <el-radio-group v-model="syncDataType" class="sync-type-group">
+            <el-radio-button value="all">全部数据</el-radio-button>
+            <el-radio-button value="daily">仅日K</el-radio-button>
+            <el-radio-button value="5min">仅5分钟K</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div class="form-item">
+          <label>同步日期范围</label>
+          <el-date-picker
+            v-model="syncDateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disabledDate"
+            :shortcuts="syncDateShortcuts"
+            style="width: 100%"
+          />
+        </div>
+        <div class="form-tip">
+          <el-icon><InfoFilled /></el-icon>
+          <span>将同步选定日期范围内的所有交易数据</span>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showSyncDialog = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          :disabled="!syncDateRange || syncDateRange.length !== 2"
+          @click="handleSync"
+        >
+          开始同步
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -401,6 +430,58 @@ const showSyncProgress = ref(false)
 const showPredictDialog = ref(false)
 const predictDateRange = ref([dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')])
 const predictThreshold = ref(0.5)
+
+// 同步对话框相关
+const showSyncDialog = ref(false)
+const syncDataType = ref('all')
+const syncDateRange = ref([
+  dayjs().subtract(29, 'day').format('YYYY-MM-DD'),
+  dayjs().format('YYYY-MM-DD')
+])
+
+// 同步日期快捷选项
+const syncDateShortcuts = [
+  {
+    text: '最近7天',
+    value: () => {
+      const end = dayjs().format('YYYY-MM-DD')
+      const start = dayjs().subtract(6, 'day').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '最近30天',
+    value: () => {
+      const end = dayjs().format('YYYY-MM-DD')
+      const start = dayjs().subtract(29, 'day').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '最近90天',
+    value: () => {
+      const end = dayjs().format('YYYY-MM-DD')
+      const start = dayjs().subtract(89, 'day').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '最近180天',
+    value: () => {
+      const end = dayjs().format('YYYY-MM-DD')
+      const start = dayjs().subtract(179, 'day').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const start = dayjs().startOf('month').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  }
+]
 
 // 日期快捷选项
 const dateShortcuts = [
@@ -509,10 +590,20 @@ const handleCloseProgress = () => {
 }
 
 // 处理数据同步
-const handleSync = async (dataType) => {
+const handleSync = async () => {
+  if (!syncDateRange.value || syncDateRange.value.length !== 2) {
+    ElMessage.warning('请选择同步日期范围')
+    return
+  }
+  
   try {
+    showSyncDialog.value = false
     showSyncProgress.value = true
-    await dataSyncStore.startSync(dataType)
+    
+    // 生成日期数组（复用预测的函数）
+    const dates = generateDateRange(syncDateRange.value[0], syncDateRange.value[1])
+    
+    await dataSyncStore.startSync(syncDataType.value, dates)
     ElMessage.success('数据同步任务已启动')
   } catch (error) {
     ElMessage.error(error.message || '启动同步任务失败')
@@ -897,6 +988,51 @@ onMounted(() => {
       color: var(--primary-color);
       min-width: 45px;
       text-align: right;
+    }
+  }
+  
+  .form-tip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(var(--primary-rgb), 0.08);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    
+    .el-icon {
+      color: var(--primary-color);
+      font-size: 16px;
+    }
+  }
+}
+
+// 同步对话框表单
+.sync-form {
+  padding: 10px 0;
+  
+  .form-item {
+    margin-bottom: 24px;
+    
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+  }
+  
+  .sync-type-group {
+    width: 100%;
+    
+    .el-radio-button {
+      flex: 1;
+      
+      :deep(.el-radio-button__inner) {
+        width: 100%;
+      }
     }
   }
   

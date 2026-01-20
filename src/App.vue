@@ -71,6 +71,7 @@ const showOfflineToast = ref(false)
 const toastDismissed = ref(false)
 let healthCheckInterval = null
 let autoHideTimer = null
+let dismissTimer = null
 
 // 检查后端健康状态
 const checkBackendHealth = async () => {
@@ -103,6 +104,12 @@ const dismissToast = () => {
   showOfflineToast.value = false
   toastDismissed.value = true
   if (autoHideTimer) clearTimeout(autoHideTimer)
+  
+  // 30秒后重置，允许再次弹出
+  if (dismissTimer) clearTimeout(dismissTimer)
+  dismissTimer = setTimeout(() => {
+    toastDismissed.value = false
+  }, 30000)
 }
 
 // 重试连接
@@ -132,6 +139,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (healthCheckInterval) clearInterval(healthCheckInterval)
   if (autoHideTimer) clearTimeout(autoHideTimer)
+  if (dismissTimer) clearTimeout(dismissTimer)
 })
 </script>
 
