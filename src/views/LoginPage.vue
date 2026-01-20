@@ -43,7 +43,7 @@
               </div>
               <div class="feature-text">
                 <h4>深度学习模型</h4>
-                <p>基于 <a href="https://github.com/shiyu-coder/Kronos" target="_blank" class="kronos-link">Kronos</a> 架构的序列生成量化模型</p>
+                <p>基于 <a href="https://arxiv.org/pdf/2508.02739" target="_blank" class="kronos-link">Kronos</a> 架构的序列生成量化模型</p>
               </div>
             </div>
 
