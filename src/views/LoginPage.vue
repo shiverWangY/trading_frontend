@@ -35,7 +35,7 @@
 
           <!-- 功能特点 -->
           <div class="features">
-            <div class="feature-item">
+            <div class="feature-item feature-item-kronos">
               <div class="feature-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
@@ -45,6 +45,10 @@
                 <h4>深度学习模型</h4>
                 <p>基于 <a href="https://arxiv.org/pdf/2508.02739" target="_blank" class="kronos-link">Kronos</a> 架构的序列生成量化模型</p>
               </div>
+              <button class="kronos-poster-btn" @click="showPoster = true">
+                <span class="btn-icon">✨</span>
+                <span class="btn-text">快速学习</span>
+              </button>
             </div>
 
             <div class="feature-item">
@@ -92,6 +96,28 @@
           <p class="disclaimer-text">* 仅供学习交流，不构成投资建议</p>
         </div>
       </div>
+
+    <!-- Kronos 海报弹窗 -->
+    <Transition name="poster-fade">
+      <div v-if="showPoster" class="poster-overlay" @click.self="showPoster = false">
+        <div class="poster-container">
+          <button class="poster-close" @click="showPoster = false">
+            <span>×</span>
+          </button>
+          <div class="poster-content">
+            <img src="/poster.png" alt="Kronos 金融AI 介绍海报" />
+          </div>
+          <div class="poster-footer">
+            <a href="https://github.com/shiyu-coder/Kronos" target="_blank" class="poster-github-btn">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              访问 GitHub 开源项目
+            </a>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
       <!-- 右侧登录表单 -->
       <div class="form-section">
@@ -228,6 +254,7 @@ const authStore = useAuthStore()
 const isRegisterMode = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
+const showPoster = ref(false)
 
 const form = reactive({
   username: '',
@@ -818,6 +845,184 @@ const handleSubmit = async () => {
   }
 }
 
+
+// Kronos feature item 布局调整
+.feature-item-kronos {
+  position: relative;
+  
+  .feature-text {
+    flex: 1;
+    padding-right: 70px;
+  }
+}
+
+// Kronos 海报按钮 - 系统风格
+.kronos-poster-btn {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  white-space: nowrap;
+  
+  &:hover {
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5);
+  }
+  
+  &:active {
+    transform: translateY(-50%) scale(0.98);
+  }
+  
+  .btn-icon {
+    font-size: 12px;
+  }
+  
+  .btn-text {
+    font-size: 12px;
+  }
+}
+
+// 海报弹窗样式
+.poster-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.poster-container {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: posterEnter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes posterEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.poster-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transition: all 0.2s ease;
+  z-index: 10;
+  
+  &:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.6);
+  }
+}
+
+.poster-content {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  padding: 12px;
+  border-radius: 24px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(99, 102, 241, 0.1);
+  
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: calc(90vh - 100px);
+    border-radius: 16px;
+    object-fit: contain;
+  }
+}
+
+.poster-footer {
+  margin-top: 16px;
+}
+
+.poster-github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+  }
+}
+
+// 弹窗过渡动画
+.poster-fade-enter-active,
+.poster-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.poster-fade-enter-from,
+.poster-fade-leave-to {
+  opacity: 0;
+}
+
+.poster-fade-enter-active .poster-container {
+  animation: posterEnter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.poster-fade-leave-active .poster-container {
+  animation: posterLeave 0.3s ease forwards;
+}
+
+@keyframes posterLeave {
+  to {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+}
 
 // 深色模式调整
 .dark {
