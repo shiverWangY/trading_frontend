@@ -70,9 +70,10 @@
           :prediction-info="predictionInfo"
           :loading="klineLoading"
           :prediction-loading="predictionLoading"
-          @type-change="handleTypeChange"
+          :default-predict-date="defaultPredictDate"
           @range-change="handleRangeChange"
           @predict-toggle="handlePredictToggle"
+          @predict-date-change="handlePredictDateChange"
         />
       </div>
 
@@ -147,7 +148,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft, Top, Bottom, Clock } from '@element-plus/icons-vue'
-import { getStockInfo, getDailyKLine, get5MinKLine, getPredictionDetail, getKLinePrediction } from '@/api'
+import { getStockInfo, getDailyKLine, getPredictionDetail, getDailyKLinePrediction } from '@/api'
 import { usePredictionStore } from '@/stores/prediction'
 import KLineChart from '@/components/KLineChart.vue'
 import PredictionBadge from '@/components/PredictionBadge.vue'
@@ -162,7 +163,6 @@ const stockInfo = ref(null)
 const stockLoading = ref(false)
 const klineData = ref([])
 const klineLoading = ref(false)
-const klineType = ref('daily')
 const timeRange = ref(60)
 const predictionHistory = ref([])
 const historyLoading = ref(false)
@@ -171,6 +171,10 @@ const historyLoading = ref(false)
 const predictionKlineData = ref([])
 const predictionInfo = ref(null)
 const predictionLoading = ref(false)
+const selectedPredictDate = ref(null)
+
+// 默认预测日期（今天）
+const defaultPredictDate = computed(() => dayjs().format('YYYY-MM-DD'))
 
 // 最新一条K线数据
 const latestKline = computed(() => {
@@ -233,9 +237,7 @@ const fetchStockInfo = async () => {
 const fetchKlineData = async () => {
   klineLoading.value = true
   try {
-    const limit = klineType.value === 'daily' ? timeRange.value : timeRange.value * 48
-    const fetcher = klineType.value === 'daily' ? getDailyKLine : get5MinKLine
-    const result = await fetcher(stockCode.value, limit)
+    const result = await getDailyKLine(stockCode.value, timeRange.value)
     klineData.value = result.data || []
   } catch (error) {
     console.error('获取K线数据失败:', error)
@@ -271,42 +273,42 @@ const fetchPredictionHistory = async () => {
   }
 }
 
-const handleTypeChange = (type) => {
-  klineType.value = type
-  // 切换到日K时清空预测数据
-  if (type === 'daily') {
-    predictionKlineData.value = []
-    predictionInfo.value = null
-  }
-  fetchKlineData()
-}
-
 const handleRangeChange = (range) => {
   timeRange.value = range
   fetchKlineData()
 }
 
 // 处理预测开关
-const handlePredictToggle = async (enabled) => {
+const handlePredictToggle = async (enabled, date) => {
   if (enabled) {
-    await fetchKLinePrediction()
+    selectedPredictDate.value = date || defaultPredictDate.value
+    await fetchKLinePrediction(selectedPredictDate.value)
   } else {
     predictionKlineData.value = []
     predictionInfo.value = null
   }
 }
 
-// 获取K线预测数据
-const fetchKLinePrediction = async () => {
+// 处理预测日期变化
+const handlePredictDateChange = async (date) => {
+  selectedPredictDate.value = date
+  if (predictionKlineData.value.length > 0 || predictionInfo.value) {
+    // 如果已经有预测数据，重新获取
+    await fetchKLinePrediction(date)
+  }
+}
+
+// 获取日K线预测数据
+const fetchKLinePrediction = async (execDate = null) => {
   predictionLoading.value = true
   try {
-    // K线预测使用独立的模型（如 kronos-mini），不传 model_name 使用后端默认模型
-    const result = await getKLinePrediction(stockCode.value, null, null)
+    // 使用日K线预测接口，不传 model_name 使用后端默认模型
+    const result = await getDailyKLinePrediction(stockCode.value, execDate, null)
     
     if (result && result.predictions) {
-      // 转换预测数据格式
+      // 转换预测数据格式（日K使用 date 而非 datetime）
       predictionKlineData.value = result.predictions.map(p => ({
-        datetime: p.datetime,
+        datetime: p.date || p.datetime,
         open: p.open,
         close: p.close,
         high: p.high,
@@ -316,9 +318,10 @@ const fetchKLinePrediction = async () => {
       
       predictionInfo.value = {
         model_name: result.model_name,
-        target_date: result.target_date,
-        predict_date: result.predict_date,
-        task_id: result.task_id
+        exec_date: result.exec_date,
+        predict_start: result.predict_start,
+        predict_end: result.predict_end,
+        history_end: result.history_end
       }
     }
   } catch (error) {
