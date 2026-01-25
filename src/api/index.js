@@ -224,7 +224,7 @@ export const getDailyKLinePrediction = (code, execDate = null, modelName = null,
 }
 
 /**
- * 获取蒙特卡洛模拟预测
+ * 获取蒙特卡洛模拟预测（单只股票）
  * @param {string} code - 股票代码（必填）
  * @param {string} execDate - 执行日期 YYYY-MM-DD（可选，不传使用最新交易日）
  * @param {number} samples - 采样次数（可选，默认1000）
@@ -234,6 +234,33 @@ export const getMonteCarloSimulation = (code, execDate = null, samples = 1000) =
   if (execDate) params.exec_date = execDate
   if (samples !== 1000) params.samples = samples
   return api.get(`/kline/${code}/monte-carlo`, { params })
+}
+
+/**
+ * 获取蒙特卡洛预测列表（大盘）
+ * @param {string} execDate - 执行日期（必填）
+ * @param {object} options - 可选参数
+ * @param {string} options.sortBy - 排序字段，默认 up_probability
+ * @param {string} options.order - 排序方向，默认 desc
+ * @param {number} options.limit - 返回数量，默认 100
+ * @param {number} options.offset - 分页偏移，默认 0
+ */
+export const getMonteCarloList = (execDate, options = {}) => {
+  const params = {
+    exec_date: execDate,
+    sort_by: options.sortBy || 'up_probability',
+    order: options.order || 'desc',
+    limit: options.limit || 100,
+    offset: options.offset || 0
+  }
+  return api.get('/kline/monte-carlo/list', { params })
+}
+
+/**
+ * 获取蒙特卡洛可用预测日期列表
+ */
+export const getMonteCarloDates = () => {
+  return api.get('/kline/monte-carlo/dates')
 }
 
 // ========== 数据同步相关 API ==========

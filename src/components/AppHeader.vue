@@ -1,7 +1,7 @@
 <template>
   <header class="app-header">
     <div class="header-container">
-      <!-- 左侧：Logo + 模型选择器 -->
+      <!-- 左侧：Logo -->
       <div class="header-left">
         <router-link to="/" class="logo">
           <div class="logo-icon">
@@ -10,23 +10,6 @@
           </div>
           <span class="logo-text">DeepQuant</span>
         </router-link>
-        
-        <!-- 模型选择器 -->
-        <div class="model-selector">
-          <el-select 
-            v-model="selectedModel" 
-            placeholder="选择模型"
-            size="small"
-            @change="handleModelChange"
-          >
-            <el-option
-              v-for="model in store.models"
-              :key="model.model_name"
-              :label="model.model_name"
-              :value="model.model_name"
-            />
-          </el-select>
-        </div>
       </div>
 
       <!-- 中间：导航菜单（绝对定位居中） -->
@@ -112,39 +95,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { TrendCharts, HomeFilled, DataAnalysis, Search, Lock, SwitchButton, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import SearchDialog from '@/components/SearchDialog.vue'
-import { usePredictionStore } from '@/stores/prediction'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
-const store = usePredictionStore()
 const authStore = useAuthStore()
 
-const selectedModel = ref(store.currentModel)
 const showSearch = ref(false)
-
-// 监听 store 中的 currentModel 变化
-watch(() => store.currentModel, (val) => {
-  selectedModel.value = val
-})
-
-// 监听模型列表变化，如果当前没有选中模型，默认选第一个
-watch(() => store.models, (models) => {
-  if (models.length > 0 && !store.currentModel) {
-    store.setModel(models[0].model_name)
-    selectedModel.value = models[0].model_name
-  }
-}, { immediate: true })
-
-const handleModelChange = (val) => {
-  store.setModel(val)
-}
 
 const menuItems = [
   { path: '/', title: '预测大盘', icon: 'HomeFilled' },
@@ -188,13 +151,6 @@ const handleUserCommand = async (command) => {
     }).catch(() => {})
   }
 }
-
-// 组件挂载时获取模型列表
-onMounted(() => {
-  if (store.models.length === 0) {
-    store.fetchModels()
-  }
-})
 </script>
 
 <style lang="scss" scoped>
@@ -370,36 +326,6 @@ onMounted(() => {
   z-index: 1;
 }
 
-.model-selector {
-  display: flex;
-  align-items: center;
-  padding-left: 20px;
-  border-left: 1px solid var(--glass-border);
-  
-  :deep(.el-select) {
-    width: 200px;
-    
-    .el-select__wrapper {
-      background: var(--glass-bg);
-      border-color: var(--glass-border);
-      border-radius: 10px;
-      height: 36px;
-      
-      &:hover {
-        border-color: var(--glass-border-hover);
-      }
-      
-      &.is-focused {
-        border-color: var(--primary-color);
-      }
-    }
-    
-    .el-select__selected-item {
-      font-size: 13px;
-      font-weight: 500;
-    }
-  }
-}
 
 .search-btn {
   display: flex;

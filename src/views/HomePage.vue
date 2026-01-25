@@ -6,144 +6,135 @@
         <div class="header-left">
           <div class="title-badge">
             <el-icon><TrendCharts /></el-icon>
-            <span>AI 预测</span>
+            <span>Kronos-Monte-Carlo</span>
           </div>
           <h1 class="page-title">预测大盘</h1>
           <p class="page-subtitle">
-            查看 AI 模型对股票涨跌的预测结果，发现投资机会
+            基于序列生成-蒙特卡洛模拟的股票涨跌概率预测，发现高确定性投资机会
           </p>
         </div>
         <div class="header-right">
-          <div class="date-picker-wrap">
-            <el-date-picker
-              v-model="currentDate"
-              type="date"
-              placeholder="选择日期"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
-              :disabled-date="disabledDate"
+          <div class="date-selector" v-if="availableDates.length">
+            <el-select 
+              v-model="selectedDate" 
+              placeholder="选择预测日期"
+              size="large"
               @change="handleDateChange"
-            />
+            >
+              <el-option
+                v-for="item in availableDates"
+                :key="item.exec_date"
+                :label="formatDateOption(item)"
+                :value="item.exec_date"
+              >
+                <div class="date-option">
+                  <span class="date-main">{{ item.exec_date }}</span>
+                  <span class="date-info">
+                    {{ item.stock_count }} 只 · 
+                    <span :class="item.avg_up_probability_pct >= 50 ? 'up' : 'down'">
+                      {{ item.avg_up_probability_pct.toFixed(1) }}% 看涨
+                    </span>
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
           </div>
-          
-          <!-- 数据同步按钮 (仅管理员可见) -->
-          <el-button 
-            v-if="isAdmin"
-            size="large"
-            :loading="dataSyncStore.syncTask.isRunning"
-            :disabled="dataSyncStore.syncTask.isRunning"
-            @click="showSyncDialog = true"
-          >
-            <el-icon><Refresh /></el-icon>
-            {{ dataSyncStore.syncTask.isRunning ? '同步中...' : '同步数据' }}
-          </el-button>
-          
-          <!-- 预测按钮 (仅管理员可见) -->
-          <el-button 
-            v-if="isAdmin"
-            type="primary" 
-            size="large"
-            :loading="store.predictionTask.status === 'pending'"
-            :disabled="store.predictionTask.isRunning"
-            @click="showPredictDialog = true"
-          >
-            <el-icon><Cpu /></el-icon>
-            {{ store.predictionTask.isRunning ? '预测中...' : '执行预测' }}
-          </el-button>
         </div>
       </div>
 
-      <!-- 数据同步进度条 -->
-      <SyncProgress
-        v-if="dataSyncStore.syncTask.isRunning || showSyncProgress"
-        :status="dataSyncStore.syncTask.status"
-        :progress="dataSyncStore.syncTask.progress"
-        :stage="dataSyncStore.syncTask.stage"
-        :sync-type="dataSyncStore.syncTask.syncType"
-        :current="dataSyncStore.syncTask.current"
-        :total="dataSyncStore.syncTask.total"
-        :message="dataSyncStore.syncTask.message"
-        :error-message="dataSyncStore.syncTask.errorMessage"
-        @close="handleCloseSyncProgress"
-      />
+      <!-- 大盘概览统计 -->
+      <div class="overview-section" v-if="currentDateInfo">
+        <div class="overview-card glass-card main-stat">
+          <div class="stat-visual">
+            <div class="gauge-ring" :style="gaugeStyle">
+              <div class="gauge-center">
+                <span class="gauge-value" :class="currentDateInfo.avg_up_probability_pct >= 50 ? 'up' : 'down'">
+                  {{ currentDateInfo.avg_up_probability_pct.toFixed(1) }}%
+                </span>
+                <span class="gauge-label">平均看涨</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-info">
+            <h3>大盘情绪</h3>
+            <p class="stat-desc">
+              预测日期 <strong>{{ predictDate }}</strong>，
+              共 <strong>{{ currentDateInfo.stock_count }}</strong> 只股票
+            </p>
+            <div class="sentiment-bar">
+              <div class="sentiment-fill up" :style="{ width: currentDateInfo.avg_up_probability_pct + '%' }"></div>
+              <div class="sentiment-fill down" :style="{ width: (100 - currentDateInfo.avg_up_probability_pct) + '%' }"></div>
+            </div>
+            <div class="sentiment-labels">
+              <span class="up">看涨 {{ currentDateInfo.avg_up_probability_pct.toFixed(1) }}%</span>
+              <span class="down">看跌 {{ (100 - currentDateInfo.avg_up_probability_pct).toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
 
-      <!-- 预测进度条 -->
-      <PredictionProgress
-        v-if="store.predictionTask.isRunning || showProgress"
-        :status="store.predictionTask.status"
-        :progress="store.predictionTask.progress"
-        :stage="store.predictionTask.stage"
-        :total-stocks="store.predictionTask.totalStocks"
-        :processed-stocks="store.predictionTask.processedStocks"
-        :positive-count="store.predictionTask.positiveCount"
-        :error-message="store.predictionTask.errorMessage"
-        @close="handleCloseProgress"
-      />
+        <div class="overview-card glass-card">
+          <div class="card-icon return">
+            <el-icon><TrendCharts /></el-icon>
+          </div>
+          <div class="card-content">
+            <span class="card-label">平均预期收益</span>
+            <span 
+              class="card-value"
+              :class="currentDateInfo.avg_expected_return_pct >= 0 ? 'up' : 'down'"
+            >
+              {{ currentDateInfo.avg_expected_return_pct >= 0 ? '+' : '' }}{{ currentDateInfo.avg_expected_return_pct.toFixed(2) }}%
+            </span>
+          </div>
+        </div>
 
-      <!-- 统计卡片 -->
-      <div class="stats-grid">
-        <StatCard 
-          label="预测总数" 
-          :value="store.dailyTotal" 
-          icon="Document"
-          type="primary"
-        />
-        <StatCard 
-          label="看涨数量" 
-          :value="store.totalPositiveCount" 
-          icon="Top"
-          type="danger"
-        />
-        <StatCard 
-          label="准确率" 
-          :value="store.accuracyRate" 
-          suffix="%"
-          icon="PieChart"
-          type="success"
-        />
-        <StatCard 
-          label="今日热门" 
-          :value="topStock?.name || '-'" 
-          icon="TrendCharts"
-          type="warning"
-        />
+        <div class="overview-card glass-card">
+          <div class="card-icon stocks">
+            <el-icon><Histogram /></el-icon>
+          </div>
+          <div class="card-content">
+            <span class="card-label">高概率看涨</span>
+            <span class="card-value highlight">{{ highProbCount }}</span>
+            <span class="card-sub">上涨概率 &gt; 70%</span>
+          </div>
+        </div>
+
+        <div class="overview-card glass-card">
+          <div class="card-icon date">
+            <el-icon><Calendar /></el-icon>
+          </div>
+          <div class="card-content">
+            <span class="card-label">预测目标日</span>
+            <span class="card-value date-val">{{ predictDate }}</span>
+            <span class="card-sub">基于 {{ selectedDate }} 数据</span>
+          </div>
+        </div>
       </div>
 
       <!-- 筛选工具栏 -->
       <div class="filter-toolbar glass-card">
         <div class="filter-section">
-          <ScoreSlider 
-            v-model="filterScore" 
-            @change="handleScoreChange"
-          />
-        </div>
-        
-        <div class="filter-divider"></div>
-        
-        <div class="filter-section">
-          <span class="filter-label">预测方向</span>
-          <el-radio-group v-model="filterPrediction" @change="handlePredictionFilter">
-            <el-radio-button :value="null">全部</el-radio-button>
-            <el-radio-button :value="1">
-              <el-icon><Top /></el-icon>
-              看涨
-            </el-radio-button>
-            <el-radio-button :value="0">
-              <el-icon><Bottom /></el-icon>
-              看跌
-            </el-radio-button>
+          <span class="filter-label">排序方式</span>
+          <el-radio-group v-model="sortBy" @change="handleSortChange">
+            <el-radio-button value="up_probability">上涨概率</el-radio-button>
+            <el-radio-button value="expected_return">预期收益</el-radio-button>
+            <el-radio-button value="sharpe_ratio">夏普比率</el-radio-button>
           </el-radio-group>
         </div>
         
         <div class="filter-divider"></div>
         
         <div class="filter-section">
-          <el-checkbox 
-            v-model="excludeLimitUp" 
-            @change="handleExcludeLimitUp"
-          >
-            剔除涨停
-          </el-checkbox>
+          <span class="filter-label">最低概率</span>
+          <el-slider
+            v-model="minProbability"
+            :min="0"
+            :max="100"
+            :step="5"
+            :format-tooltip="val => val + '%'"
+            style="width: 150px"
+            @change="handleFilterChange"
+          />
+          <span class="filter-value">{{ minProbability }}%</span>
         </div>
         
         <div class="filter-search">
@@ -162,22 +153,18 @@
         <div class="table-header">
           <h2 class="table-title">
             <el-icon><List /></el-icon>
-            预测列表
-            <span class="date-hint">
-              <el-icon><Calendar /></el-icon>
-              {{ formatShortDate(currentDate) }} 买入
-            </span>
+            概率预测列表
           </h2>
           <div class="table-actions">
             <span class="result-count">
-              共 <strong>{{ store.pagination.total }}</strong> 条记录
+              共 <strong>{{ totalCount }}</strong> 条记录
             </span>
           </div>
         </div>
         
         <el-table
-          :data="store.filteredPredictions"
-          v-loading="store.loading"
+          :data="filteredList"
+          v-loading="loading"
           stripe
           highlight-current-row
           @row-click="handleRowClick"
@@ -195,67 +182,64 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="score" label="得分" width="160" sortable>
+          <el-table-column prop="up_probability_pct" label="上涨概率" width="180" sortable>
             <template #default="{ row }">
-              <div class="score-cell">
-                <div class="score-bar">
+              <div class="probability-cell">
+                <div class="prob-bar">
                   <div 
-                    class="score-fill" 
-                    :style="{ 
-                      width: (row.score * 100) + '%',
-                      background: getScoreGradient(row.score)
-                    }"
+                    class="prob-fill"
+                    :class="getProbClass(row.up_probability_pct)"
+                    :style="{ width: row.up_probability_pct + '%' }"
                   ></div>
                 </div>
-                <span class="score-value">{{ row.score.toFixed(3) }}</span>
+                <span class="prob-value" :class="getProbClass(row.up_probability_pct)">
+                  {{ row.up_probability_pct.toFixed(1) }}%
+                </span>
               </div>
             </template>
           </el-table-column>
           
-          <el-table-column prop="prediction" label="预测" width="100" align="center">
-            <template #default="{ row }">
-              <PredictionBadge :prediction="row.prediction" />
-            </template>
-          </el-table-column>
-          
-          <el-table-column prop="buy_price" label="买入价" width="110" align="right">
-            <template #default="{ row }">
-              <span class="price-value" v-if="row.buy_price !== null && row.buy_price !== undefined">
-                ¥{{ row.buy_price.toFixed(2) }}
-              </span>
-              <span v-else class="return-pending">-</span>
-            </template>
-          </el-table-column>
-          
-          <el-table-column prop="day_change" label="当日涨跌" width="110" sortable>
+          <el-table-column prop="expected_return_pct" label="预期收益" width="120">
             <template #default="{ row }">
               <span 
-                v-if="row.day_change !== null && row.day_change !== undefined"
+                v-if="row.expected_return_pct != null"
                 class="return-value"
-                :class="{ up: row.day_change > 0, down: row.day_change < 0, neutral: row.day_change === 0 }"
+                :class="{ up: row.expected_return_pct > 0, down: row.expected_return_pct < 0 }"
               >
-                {{ row.day_change > 0 ? '+' : '' }}{{ row.day_change.toFixed(2) }}%
+                {{ row.expected_return_pct > 0 ? '+' : '' }}{{ row.expected_return_pct.toFixed(2) }}%
               </span>
-              <span v-else class="return-pending">-</span>
+              <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="actual_return" label="3日最高" width="110" sortable>
+          <el-table-column prop="sharpe_ratio" label="夏普比率" width="120">
             <template #default="{ row }">
               <span 
-                v-if="row.actual_return !== null"
-                class="return-value"
-                :class="{ up: row.actual_return > 0, down: row.actual_return < 0 }"
+                v-if="row.sharpe_ratio != null"
+                class="sharpe-value"
+                :class="{ positive: row.sharpe_ratio > 0, negative: row.sharpe_ratio < 0 }"
               >
-                {{ row.actual_return > 0 ? '+' : '' }}{{ (row.actual_return * 100).toFixed(2) }}%
+                {{ row.sharpe_ratio.toFixed(2) }}
               </span>
-              <span v-else class="return-pending">-</span>
+              <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="is_correct" label="状态" width="100" align="center">
+          <el-table-column prop="current_close" label="当前价" width="110" align="right">
             <template #default="{ row }">
-              <ResultBadge :is-correct="row.is_correct" />
+              <span class="price-value" v-if="row.current_close != null">¥{{ row.current_close.toFixed(2) }}</span>
+              <span v-else class="text-muted">-</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="预测区间" width="160" align="center">
+            <template #default="{ row }">
+              <span class="range-value" v-if="row.price_5pct != null && row.price_95pct != null">
+                <span class="down">{{ row.price_5pct.toFixed(2) }}</span>
+                <span class="separator">~</span>
+                <span class="up">{{ row.price_95pct.toFixed(2) }}</span>
+              </span>
+              <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
           
@@ -277,361 +261,150 @@
         <div class="table-pagination">
           <el-pagination
             v-model:current-page="currentPage"
-            :page-size="store.pagination.pageSize"
-            :total="store.pagination.total"
+            :page-size="pageSize"
+            :total="totalCount"
             layout="total, prev, pager, next, jumper"
             @current-change="handlePageChange"
           />
         </div>
       </div>
     </div>
-    
-    <!-- 预测对话框 -->
-    <el-dialog
-      v-model="showPredictDialog"
-      title="执行预测"
-      width="480px"
-      class="predict-dialog"
-      :close-on-click-modal="false"
-    >
-      <div class="predict-form">
-        <div class="form-item">
-          <label>预测日期范围</label>
-          <el-date-picker
-            v-model="predictDateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledDate"
-            :shortcuts="dateShortcuts"
-            style="width: 100%"
-          />
-        </div>
-        <div class="form-item">
-          <label>得分阈值</label>
-          <div class="threshold-input">
-            <el-slider
-              v-model="predictThreshold"
-              :min="0"
-              :max="1"
-              :step="0.05"
-              :format-tooltip="(val) => val.toFixed(2)"
-            />
-            <span class="threshold-value">{{ predictThreshold.toFixed(2) }}</span>
-          </div>
-        </div>
-        <div class="form-tip">
-          <el-icon><InfoFilled /></el-icon>
-          <span>将对选定日期范围内的所有交易日进行预测</span>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="showPredictDialog = false">取消</el-button>
-        <el-button 
-          type="primary" 
-          :disabled="!predictDateRange || predictDateRange.length !== 2"
-          @click="handlePredict"
-        >
-          开始预测
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 数据同步对话框 -->
-    <el-dialog
-      v-model="showSyncDialog"
-      title="数据同步设置"
-      width="480px"
-      class="sync-dialog"
-      :close-on-click-modal="false"
-    >
-      <div class="sync-form">
-        <div class="form-item">
-          <label>同步类型</label>
-          <el-radio-group v-model="syncDataType" class="sync-type-group">
-            <el-radio-button value="all">全部数据</el-radio-button>
-            <el-radio-button value="daily">仅日K</el-radio-button>
-            <el-radio-button value="5min">仅5分钟K</el-radio-button>
-          </el-radio-group>
-        </div>
-        <div class="form-item">
-          <label>同步日期范围</label>
-          <el-date-picker
-            v-model="syncDateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledDate"
-            :shortcuts="syncDateShortcuts"
-            style="width: 100%"
-          />
-        </div>
-        <div class="form-tip">
-          <el-icon><InfoFilled /></el-icon>
-          <span>将同步选定日期范围内的所有交易数据</span>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="showSyncDialog = false">取消</el-button>
-        <el-button 
-          type="primary" 
-          :disabled="!syncDateRange || syncDateRange.length !== 2"
-          @click="handleSync"
-        >
-          开始同步
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Cpu, Search, ArrowRight, TrendCharts, Top, Bottom, List, Refresh, Files, Calendar, Timer, InfoFilled } from '@element-plus/icons-vue'
-import { usePredictionStore } from '@/stores/prediction'
-import { useDataSyncStore } from '@/stores/dataSync'
-import { useAuthStore } from '@/stores/auth'
-import StatCard from '@/components/StatCard.vue'
-import ScoreSlider from '@/components/ScoreSlider.vue'
-import PredictionBadge from '@/components/PredictionBadge.vue'
-import ResultBadge from '@/components/ResultBadge.vue'
-import PredictionProgress from '@/components/PredictionProgress.vue'
-import SyncProgress from '@/components/SyncProgress.vue'
+import { Search, ArrowRight, TrendCharts, List, Calendar, Histogram, Top } from '@element-plus/icons-vue'
+import { getMonteCarloDates, getMonteCarloList } from '@/api'
 import dayjs from 'dayjs'
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
-dayjs.extend(isSameOrBefore)
-import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const store = usePredictionStore()
-const dataSyncStore = useDataSyncStore()
-const authStore = useAuthStore()
 
-// 是否是管理员
-const isAdmin = computed(() => authStore.userRole === 'admin')
+// 数据状态
+const loading = ref(false)
+const availableDates = ref([])
+const selectedDate = ref('')
+const predictionList = ref([])
+const totalCount = ref(0)
 
-const currentDate = ref(store.currentDate)
-const filterScore = ref(store.filters.minScore)
-const filterPrediction = ref(store.filters.prediction)
+// 筛选状态
+const sortBy = ref('up_probability')
+const minProbability = ref(0)
 const searchKeyword = ref('')
-const excludeLimitUp = ref(store.filters.excludeLimitUp)
 const currentPage = ref(1)
-const showProgress = ref(false)
-const showSyncProgress = ref(false)
+const pageSize = 50
 
-// 预测对话框相关
-const showPredictDialog = ref(false)
-const predictDateRange = ref([dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')])
-const predictThreshold = ref(0.5)
-
-// 同步对话框相关
-const showSyncDialog = ref(false)
-const syncDataType = ref('all')
-const syncDateRange = ref([
-  dayjs().subtract(29, 'day').format('YYYY-MM-DD'),
-  dayjs().format('YYYY-MM-DD')
-])
-
-// 同步日期快捷选项
-const syncDateShortcuts = [
-  {
-    text: '最近7天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(6, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '最近30天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(29, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '最近90天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(89, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '最近180天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(179, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '本月',
-    value: () => {
-      const start = dayjs().startOf('month').format('YYYY-MM-DD')
-      const end = dayjs().format('YYYY-MM-DD')
-      return [start, end]
-    }
-  }
-]
-
-// 日期快捷选项
-const dateShortcuts = [
-  {
-    text: '今天',
-    value: () => {
-      const today = dayjs().format('YYYY-MM-DD')
-      return [today, today]
-    }
-  },
-  {
-    text: '最近7天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(6, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '最近30天',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().subtract(29, 'day').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  },
-  {
-    text: '本月',
-    value: () => {
-      const end = dayjs().format('YYYY-MM-DD')
-      const start = dayjs().startOf('month').format('YYYY-MM-DD')
-      return [start, end]
-    }
-  }
-]
-
-const topStock = computed(() => {
-  if (!store.predictions.length) return null
-  return [...store.predictions].sort((a, b) => b.score - a.score)[0]
+// 当前选中日期的信息
+const currentDateInfo = computed(() => {
+  return availableDates.value.find(d => d.exec_date === selectedDate.value)
 })
 
-const disabledDate = (date) => {
-  return date > new Date()
-}
+// 预测目标日期
+const predictDate = computed(() => {
+  return currentDateInfo.value?.predict_date || '-'
+})
 
-// 格式化日期显示
-const formatDisplayDate = (date) => {
-  if (!date) return ''
-  const d = dayjs(date)
-  return `${d.month() + 1}月${d.date()}日`
-}
+// 高概率看涨数量
+const highProbCount = computed(() => {
+  return predictionList.value.filter(item => item.up_probability_pct >= 70).length
+})
 
-const formatShortDate = (date) => {
-  if (!date) return ''
-  const d = dayjs(date)
-  return `${d.month() + 1}月${d.date()}日`
-}
+// 仪表盘样式
+const gaugeStyle = computed(() => {
+  if (!currentDateInfo.value) return {}
+  const upProb = currentDateInfo.value.avg_up_probability_pct
+  const upColor = upProb >= 50 ? 'var(--up-color)' : 'rgba(220, 38, 38, 0.3)'
+  const downColor = upProb < 50 ? 'var(--down-color)' : 'rgba(22, 163, 74, 0.3)'
+  return {
+    background: `conic-gradient(${upColor} 0deg ${upProb * 3.6}deg, ${downColor} ${upProb * 3.6}deg 360deg)`
+  }
+})
 
-const getScoreGradient = (score) => {
-  if (score >= 0.8) return 'linear-gradient(90deg, var(--up-color), #ef4444)'
-  if (score >= 0.6) return 'linear-gradient(90deg, #fbbf24, #f59e0b)'
-  return 'linear-gradient(90deg, var(--primary-color), var(--accent-color))'
-}
-
-const handleDateChange = (date) => {
-  store.setDate(date)
-}
-
-// 生成日期范围内的所有日期数组
-const generateDateRange = (startDate, endDate) => {
-  const dates = []
-  let current = dayjs(startDate)
-  const end = dayjs(endDate)
+// 筛选后的列表（前端搜索过滤）
+const filteredList = computed(() => {
+  let list = [...predictionList.value]
   
-  while (current.isSameOrBefore(end, 'day')) {
-    dates.push(current.format('YYYY-MM-DD'))
-    current = current.add(1, 'day')
+  // 关键词搜索
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase()
+    list = list.filter(item => 
+      item.code.toLowerCase().includes(keyword) ||
+      item.name.toLowerCase().includes(keyword)
+    )
   }
   
-  return dates
+  return list
+})
+
+// 格式化日期选项
+const formatDateOption = (item) => {
+  return `${item.exec_date} (${item.stock_count}只)`
 }
 
-const handlePredict = async () => {
-  if (!predictDateRange.value || predictDateRange.value.length !== 2) {
-    ElMessage.warning('请选择预测日期范围')
-    return
-  }
-  
+// 获取概率样式类
+const getProbClass = (prob) => {
+  if (prob >= 70) return 'high'
+  if (prob >= 50) return 'medium'
+  return 'low'
+}
+
+// 获取可用日期列表
+const fetchDates = async () => {
   try {
-    showPredictDialog.value = false
-    showProgress.value = true
-    
-    // 生成日期数组
-    const dates = generateDateRange(predictDateRange.value[0], predictDateRange.value[1])
-    
-    await store.runPrediction(dates, predictThreshold.value)
-    ElMessage.success('预测任务已启动')
+    const result = await getMonteCarloDates()
+    availableDates.value = result.dates || []
+    if (availableDates.value.length > 0) {
+      selectedDate.value = availableDates.value[0].exec_date
+      await fetchList()
+    }
   } catch (error) {
-    ElMessage.error(error.message || '启动预测任务失败')
+    console.error('获取日期列表失败:', error)
   }
 }
 
-const handleCloseProgress = () => {
-  showProgress.value = false
-  store.resetTask()
-}
-
-// 处理数据同步
-const handleSync = async () => {
-  if (!syncDateRange.value || syncDateRange.value.length !== 2) {
-    ElMessage.warning('请选择同步日期范围')
-    return
-  }
+// 获取预测列表
+const fetchList = async () => {
+  if (!selectedDate.value) return
   
+  loading.value = true
   try {
-    showSyncDialog.value = false
-    showSyncProgress.value = true
-    
-    // 生成日期数组（复用预测的函数）
-    const dates = generateDateRange(syncDateRange.value[0], syncDateRange.value[1])
-    
-    await dataSyncStore.startSync(syncDataType.value, dates)
-    ElMessage.success('数据同步任务已启动')
+    const result = await getMonteCarloList(selectedDate.value, {
+      sortBy: sortBy.value,
+      order: 'desc',
+      limit: 100,
+      offset: (currentPage.value - 1) * pageSize
+    })
+    predictionList.value = result.items || []
+    totalCount.value = result.total || 0
   } catch (error) {
-    ElMessage.error(error.message || '启动同步任务失败')
+    console.error('获取预测列表失败:', error)
+    console.error('错误详情:', error.response?.data)
+    predictionList.value = []
+  } finally {
+    loading.value = false
   }
 }
 
-const handleCloseSyncProgress = () => {
-  showSyncProgress.value = false
-  dataSyncStore.resetTask()
+// 事件处理
+const handleDateChange = () => {
+  fetchList()
 }
 
-const handleScoreChange = (score) => {
-  store.setFilters({ minScore: score })
+const handleSortChange = () => {
+  currentPage.value = 1
+  fetchList()
 }
 
-const handlePredictionFilter = (val) => {
-  store.setFilters({ prediction: val })
-}
-
-const handleExcludeLimitUp = (val) => {
-  store.setFilters({ excludeLimitUp: val })
+const handleFilterChange = () => {
+  currentPage.value = 1
 }
 
 let searchTimer = null
-const handleSearch = (val) => {
+const handleSearch = () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    store.setFilters({ keyword: val })
+    currentPage.value = 1
   }, 300)
 }
 
@@ -640,30 +413,12 @@ const handleRowClick = (row) => {
 }
 
 const handlePageChange = (page) => {
-  store.setPage(page)
+  currentPage.value = page
+  fetchList()
 }
 
-// 监听预测任务完成状态
-watch(() => store.predictionTask.status, (status) => {
-  if (status === 'completed') {
-    ElMessage.success('预测完成！')
-  } else if (status === 'failed') {
-    ElMessage.error(store.predictionTask.errorMessage || '预测失败')
-  }
-})
-
-// 监听数据同步任务完成状态
-watch(() => dataSyncStore.syncTask.status, (status) => {
-  if (status === 'completed') {
-    ElMessage.success('数据同步完成！')
-  } else if (status === 'failed') {
-    ElMessage.error(dataSyncStore.syncTask.errorMessage || '数据同步失败')
-  }
-})
-
 onMounted(() => {
-  store.fetchPredictions()
-  store.fetchStats()
+  fetchDates()
 })
 </script>
 
@@ -693,10 +448,10 @@ onMounted(() => {
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    background: rgba(var(--primary-rgb), 0.1);
-    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.15));
+    border: 1px solid rgba(139, 92, 246, 0.3);
     border-radius: 20px;
-    color: var(--primary-color);
+    color: #8b5cf6;
     font-size: 12px;
     font-weight: 600;
     margin-bottom: 16px;
@@ -709,7 +464,7 @@ onMounted(() => {
     margin: 0;
     letter-spacing: -1.5px;
     line-height: 1.1;
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-color) 100%);
+    background: linear-gradient(135deg, var(--text-primary) 0%, #8b5cf6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -730,36 +485,213 @@ onMounted(() => {
   align-items: center;
 }
 
-.date-picker-wrap {
-  :deep(.el-input__wrapper) {
-    padding: 8px 16px;
+.date-selector {
+  :deep(.el-select) {
+    width: 260px;
+  }
+  
+  .date-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    
+    .date-main {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+    
+    .date-info {
+      font-size: 12px;
+      color: var(--text-muted);
+      
+      .up { color: var(--up-color); }
+      .down { color: var(--down-color); }
+    }
   }
 }
 
-.stats-grid {
+// 大盘概览
+.overview-section {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 20px;
   margin-bottom: 24px;
   
-  > * {
-    animation: fadeIn 0.6s ease backwards;
-    
-    &:nth-child(1) { animation-delay: 0.1s; }
-    &:nth-child(2) { animation-delay: 0.15s; }
-    &:nth-child(3) { animation-delay: 0.2s; }
-    &:nth-child(4) { animation-delay: 0.25s; }
+  @media (max-width: 1200px) {
+    grid-template-columns: 1fr 1fr;
   }
   
-  @media (max-width: 1100px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 }
 
+.overview-card {
+  padding: 24px;
+  animation: fadeIn 0.6s ease backwards;
+  
+  &:nth-child(1) { animation-delay: 0.1s; }
+  &:nth-child(2) { animation-delay: 0.15s; }
+  &:nth-child(3) { animation-delay: 0.2s; }
+  &:nth-child(4) { animation-delay: 0.25s; }
+  
+  &.main-stat {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    
+    @media (max-width: 1200px) {
+      grid-column: 1 / -1;
+    }
+  }
+  
+  .stat-visual {
+    flex-shrink: 0;
+  }
+  
+  .gauge-ring {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      background: var(--card-bg);
+      border-radius: 50%;
+    }
+  }
+  
+  .gauge-center {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    
+    .gauge-value {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      
+      &.up { color: var(--up-color); }
+      &.down { color: var(--down-color); }
+    }
+    
+    .gauge-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+  }
+  
+  .stat-info {
+    flex: 1;
+    
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 8px;
+    }
+    
+    .stat-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin: 0 0 16px;
+      
+      strong {
+        color: var(--text-primary);
+      }
+    }
+  }
+  
+  .sentiment-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    
+    .sentiment-fill {
+      height: 100%;
+      transition: width 0.5s ease;
+      
+      &.up { background: var(--up-color); }
+      &.down { background: var(--down-color); }
+    }
+  }
+  
+  .sentiment-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    
+    .up { color: var(--up-color); }
+    .down { color: var(--down-color); }
+  }
+  
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 16px;
+    
+    &.return {
+      background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(251, 191, 36, 0.15));
+      color: #f87171;
+    }
+    
+    &.stocks {
+      background: linear-gradient(135deg, rgba(129, 140, 248, 0.15), rgba(6, 182, 212, 0.15));
+      color: #818cf8;
+    }
+    
+    &.date {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(192, 132, 252, 0.15));
+      color: #8b5cf6;
+    }
+  }
+  
+  .card-content {
+    .card-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    
+    .card-value {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      
+      &.up { color: var(--up-color); }
+      &.down { color: var(--down-color); }
+      &.highlight { color: #8b5cf6; }
+      &.date-val { font-size: 18px; }
+    }
+    
+    .card-sub {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+  }
+}
+
+// 筛选工具栏
 .filter-toolbar {
   display: flex;
   align-items: center;
@@ -783,6 +715,14 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.filter-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-color);
+  min-width: 40px;
+}
+
 .filter-divider {
   width: 1px;
   height: 32px;
@@ -797,6 +737,7 @@ onMounted(() => {
   }
 }
 
+// 表格
 .prediction-table-card {
   padding: 0;
   overflow: hidden;
@@ -821,25 +762,7 @@ onMounted(() => {
     margin: 0;
     
     > .el-icon {
-      color: var(--primary-color);
-    }
-    
-    .date-hint {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 12px;
-      padding: 6px 14px;
-      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(192, 132, 252, 0.15));
-      border: 1px solid rgba(var(--primary-rgb), 0.2);
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--primary-color);
-      
-      .el-icon {
-        font-size: 14px;
-      }
+      color: #8b5cf6;
     }
   }
   
@@ -848,7 +771,7 @@ onMounted(() => {
     color: var(--text-muted);
     
     strong {
-      color: var(--primary-color);
+      color: #8b5cf6;
     }
   }
   
@@ -862,7 +785,7 @@ onMounted(() => {
 .stock-code {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
-  color: var(--primary-color);
+  color: #8b5cf6;
   font-size: 13px;
 }
 
@@ -871,12 +794,12 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.score-cell {
+.probability-cell {
   display: flex;
   align-items: center;
   gap: 12px;
   
-  .score-bar {
+  .prob-bar {
     flex: 1;
     height: 6px;
     background: var(--border-color);
@@ -884,18 +807,25 @@ onMounted(() => {
     overflow: hidden;
   }
   
-  .score-fill {
+  .prob-fill {
     height: 100%;
     border-radius: 3px;
     transition: width 0.3s ease;
+    
+    &.high { background: var(--up-color); }
+    &.medium { background: #fbbf24; }
+    &.low { background: var(--down-color); }
   }
   
-  .score-value {
+  .prob-value {
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
     font-weight: 600;
-    min-width: 54px;
-    color: var(--text-secondary);
+    min-width: 50px;
+    
+    &.high { color: var(--up-color); }
+    &.medium { color: #fbbf24; }
+    &.low { color: var(--down-color); }
   }
 }
 
@@ -911,21 +841,29 @@ onMounted(() => {
   font-weight: 600;
   font-size: 13px;
   
-  &.up {
-    color: var(--up-color);
-  }
-  
-  &.down {
-    color: var(--down-color);
-  }
-  
-  &.neutral {
-    color: var(--text-muted);
-  }
+  &.up { color: var(--up-color); }
+  &.down { color: var(--down-color); }
 }
 
-.return-pending {
-  color: var(--text-muted);
+.sharpe-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  
+  &.positive { color: #818cf8; }
+  &.negative { color: #f87171; }
+}
+
+.range-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  
+  .up { color: var(--up-color); }
+  .down { color: var(--down-color); }
+  .separator { 
+    color: var(--text-muted); 
+    margin: 0 4px;
+  }
 }
 
 .view-btn {
@@ -936,6 +874,10 @@ onMounted(() => {
     opacity: 1;
     transform: scale(1.1);
   }
+}
+
+.text-muted {
+  color: var(--text-muted);
 }
 
 .table-pagination {
@@ -953,103 +895,6 @@ onMounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-// 预测对话框样式
-.predict-form {
-  padding: 10px 0;
-  
-  .form-item {
-    margin-bottom: 24px;
-    
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 12px;
-    }
-  }
-  
-  .threshold-input {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    
-    .el-slider {
-      flex: 1;
-    }
-    
-    .threshold-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--primary-color);
-      min-width: 45px;
-      text-align: right;
-    }
-  }
-  
-  .form-tip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: rgba(var(--primary-rgb), 0.08);
-    border-radius: 10px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    
-    .el-icon {
-      color: var(--primary-color);
-      font-size: 16px;
-    }
-  }
-}
-
-// 同步对话框表单
-.sync-form {
-  padding: 10px 0;
-  
-  .form-item {
-    margin-bottom: 24px;
-    
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 12px;
-    }
-  }
-  
-  .sync-type-group {
-    width: 100%;
-    
-    .el-radio-button {
-      flex: 1;
-      
-      :deep(.el-radio-button__inner) {
-        width: 100%;
-      }
-    }
-  }
-  
-  .form-tip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: rgba(var(--primary-rgb), 0.08);
-    border-radius: 10px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    
-    .el-icon {
-      color: var(--primary-color);
-      font-size: 16px;
-    }
   }
 }
 </style>
