@@ -48,7 +48,7 @@
 
       <!-- 右侧操作区 -->
       <div class="header-actions">
-        <button class="search-btn" @click="$router.push('/search')">
+        <button class="search-btn" @click="showSearch = true">
           <el-icon :size="18"><Search /></el-icon>
           <span>搜索</span>
           <kbd>⌘K</kbd>
@@ -105,6 +105,9 @@
         </el-dropdown>
       </div>
     </div>
+    
+    <!-- 搜索弹窗 -->
+    <SearchDialog v-model:visible="showSearch" />
   </header>
 </template>
 
@@ -114,6 +117,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { TrendCharts, HomeFilled, DataAnalysis, Search, Lock, SwitchButton, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import SearchDialog from '@/components/SearchDialog.vue'
 import { usePredictionStore } from '@/stores/prediction'
 import { useAuthStore } from '@/stores/auth'
 
@@ -123,6 +127,7 @@ const store = usePredictionStore()
 const authStore = useAuthStore()
 
 const selectedModel = ref(store.currentModel)
+const showSearch = ref(false)
 
 // 监听 store 中的 currentModel 变化
 watch(() => store.currentModel, (val) => {

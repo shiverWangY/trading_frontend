@@ -223,6 +223,19 @@ export const getDailyKLinePrediction = (code, execDate = null, modelName = null,
   return api.get(`/kline/${code}/predict/daily`, { params })
 }
 
+/**
+ * 获取蒙特卡洛模拟预测
+ * @param {string} code - 股票代码（必填）
+ * @param {string} execDate - 执行日期 YYYY-MM-DD（可选，不传使用最新交易日）
+ * @param {number} samples - 采样次数（可选，默认1000）
+ */
+export const getMonteCarloSimulation = (code, execDate = null, samples = 1000) => {
+  const params = {}
+  if (execDate) params.exec_date = execDate
+  if (samples !== 1000) params.samples = samples
+  return api.get(`/kline/${code}/monte-carlo`, { params })
+}
+
 // ========== 数据同步相关 API ==========
 
 /**
